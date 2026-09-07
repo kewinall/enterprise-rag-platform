@@ -1,0 +1,3 @@
+{"question":"What should happen before a production release?","expected_source":"platform-handbook.md"}
+{"question":"How should credentials be handled?","expected_source":"platform-handbook.md"}
+{"question":"What should operators check when a data pipeline fails?","expected_source":"platform-handbook.md"}
