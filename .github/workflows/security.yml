@@ -18,15 +18,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python -m pip install --upgrade pip pip-audit
+      - run: python -m pip install --upgrade pip "setuptools>=83" pip-audit
       - run: pip install .
-      - run: pip-audit
+      - run: pip-audit --skip-editable
 
   trivy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@v0.34.0
         with:
           scan-type: fs
           scan-ref: .
