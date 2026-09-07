@@ -60,6 +60,24 @@ class VectorStore:
             for item in results
         ]
 
+    def list_documents(self, limit: int = 1000) -> list[dict]:
+        self.ensure_collection()
+        points, _ = self.client.scroll(
+            collection_name=self.collection,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [
+            {
+                "chunk_id": str(item.id),
+                "source": item.payload.get("source", "unknown"),
+                "text": item.payload.get("text", ""),
+                "score": 0.0,
+            }
+            for item in points
+        ]
+
 
 @lru_cache
 def get_vector_store() -> VectorStore:
