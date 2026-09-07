@@ -1,12 +1,12 @@
 from app.core.config import get_settings
 from app.rag.llm import generate_answer
-from app.retrieval.store import get_vector_store
+from app.retrieval.hybrid import hybrid_search
 
 
 async def answer_question(question: str, top_k: int | None = None) -> dict:
     settings = get_settings()
     limit = top_k or settings.final_top_k
-    results = get_vector_store().search(question, limit=limit)
+    results = hybrid_search(question, final_top_k=limit)
 
     context_parts = []
     citations = []
@@ -20,5 +20,5 @@ async def answer_question(question: str, top_k: int | None = None) -> dict:
     return {
         "answer": answer,
         "citations": citations,
-        "retrieval": {"candidates": len(results), "used": len(results)},
+        "retrieval": {"candidates": len(results), "used": len(results), "mode": "hybrid"},
     }
