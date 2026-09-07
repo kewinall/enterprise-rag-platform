@@ -2,7 +2,6 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-
 SUPPORTED_EXTENSIONS = {".pdf", ".md", ".txt", ".csv"}
 
 
