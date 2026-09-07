@@ -1,5 +1,6 @@
 import logging
 
+import httpx
 from fastapi import FastAPI
 from prometheus_client import make_asgi_app
 
@@ -25,5 +26,5 @@ async def ready() -> dict:
     try:
         get_vector_store().client.get_collections()
         return {"status": "ready"}
-    except Exception as exc:
+    except (httpx.HTTPError, ConnectionError, TimeoutError) as exc:
         return {"status": "not-ready", "detail": str(exc)}
