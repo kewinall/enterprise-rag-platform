@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from hashlib import sha256
+from uuid import NAMESPACE_URL, uuid5
 
 
 @dataclass(frozen=True)
@@ -24,8 +24,8 @@ def split_text(text: str, source: str, chunk_size: int, overlap: int) -> list[Ch
     while start < len(cleaned):
         end = min(len(cleaned), start + chunk_size)
         piece = cleaned[start:end]
-        digest = sha256(f"{source}:{ordinal}:{piece}".encode()).hexdigest()[:24]
-        chunks.append(Chunk(chunk_id=digest, source=source, text=piece, ordinal=ordinal))
+        chunk_id = str(uuid5(NAMESPACE_URL, f"{source}:{ordinal}:{piece}"))
+        chunks.append(Chunk(chunk_id=chunk_id, source=source, text=piece, ordinal=ordinal))
         if end == len(cleaned):
             break
         start = end - overlap
