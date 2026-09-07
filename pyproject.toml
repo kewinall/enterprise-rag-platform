@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "enterprise-rag-platform"
+version = "0.1.0"
+description = "Production-oriented enterprise RAG reference platform"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.30,<1",
+  "pydantic-settings>=2.5,<3",
+  "python-multipart>=0.0.9,<1",
+  "httpx>=0.27,<1",
+  "qdrant-client>=1.11,<2",
+  "sentence-transformers>=3.0,<4",
+  "rank-bm25>=0.2.2,<1",
+  "pypdf>=5,<6",
+  "prometheus-client>=0.20,<1"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<9",
+  "pytest-asyncio>=0.24,<1",
+  "ruff>=0.7,<1",
+  "pip-audit>=2.7,<3"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
