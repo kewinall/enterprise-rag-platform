@@ -1,5 +1,6 @@
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
@@ -15,7 +16,7 @@ router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_api_key)])
 
 
 @router.post("/ingest")
-async def ingest(file: UploadFile = File(...)) -> dict:
+async def ingest(file: Annotated[UploadFile, File()]) -> dict:
     settings = get_settings()
     suffix = Path(file.filename or "").suffix.lower()
     payload = await file.read()
