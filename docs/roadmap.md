@@ -5,24 +5,26 @@
 - Page / Section Metadata
 - Batch Ingestion API
 - Document List / Delete / Reindex Lifecycle
-- Metadata Filter：Document、Source、Content Type、Page、Section
+- Metadata Filter
 - Vector / Hybrid Retrieval Mode
 - Vector vs Hybrid Benchmark CLI
-- Expanded Synthetic Evaluation Dataset
 
-## v0.3 — 規劃中 / Planned
+## v0.3 — 已完成 / Released
 
 - RAGAS-style Answer Evaluation
 - OpenTelemetry Traces
 - PostgreSQL Audit Records
-- Redis Cache
-- LiteLLM Gateway Example
+- Redis Answer Cache
+- LiteLLM Gateway
 - Web UI：Upload、Chat、Citation Inspection
+- Runtime Dependency Readiness State
 
 ## v0.4 — 規劃中 / Planned
 
 - OIDC / RBAC
 - Multi-tenant Collections
 - MinIO / S3 Document Store
-- Kubernetes Manifests
+- Kubernetes Manifests / Helm
 - Offline Installation Bundle
+- OpenTelemetry Backend Example（Tempo / Jaeger）
+- Secret Manager Integration
