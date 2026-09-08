@@ -1,111 +1,82 @@
 # 故障排除 / Troubleshooting
 
-## Agentic RAG Disabled
+## Agent State unavailable
 
-確認 / Check:
+Readiness:
 
-    AGENT_ENABLED=true
+    GET /ready
 
-Endpoint:
+Check:
 
-    POST /api/v1/agent/query
+    agent_state=ready
 
-## Planner 回傳 degraded / Planner degraded
+PostgreSQL must be reachable and able to create agent_session, agent_checkpoint, agent_job, and agent_memory.
 
-**繁體中文**  
-如果 Planner 回傳非 JSON，Agent Trace 會顯示 plan status=degraded，並安全降級為 search_knowledge。
+## Async Job remains queued
 
-**English**  
-If the planner returns invalid JSON, the trace shows plan status=degraded and safely falls back to search_knowledge.
+Check:
+- AGENT_ASYNC_JOBS_ENABLED=true
+- PostgreSQL connectivity
+- application worker is running
+- LiteLLM / Qdrant dependencies
 
-確認 LiteLLM / Ollama:
+After restart, jobs left in running state are requeued automatically.
 
-    docker compose logs litellm
-    docker compose exec ollama ollama list
+## Session 404
 
-## Critic degraded
+Confirm the session_id belongs to the current tenant.
 
-Context / Answer Critic 若無法解析 JSON，Trace 會顯示 degraded。  
-If critic JSON cannot be parsed, the trace records degraded status.
+## Memory not used
 
-這不會放寬 Tool Permission。  
-This does not relax tool permissions.
+Check:
+- request session_id
+- use_memory=true
+- memory has not expired
+- memory belongs to the same tenant/session
 
-## Approval Request 建立失敗
+## Budget exceeded
 
-Approval Workflow 需要 Redis:
+Response status:
 
-    docker compose exec redis redis-cli ping
+    budget_exceeded
 
-Expected:
+Check:
 
-    PONG
+    AGENT_BUDGET_MAX_TOKENS
+    AGENT_BUDGET_MAX_COST_USD
+    AGENT_INPUT_COST_PER_1K
+    AGENT_OUTPUT_COST_PER_1K
 
-確認 / Check:
+Cost rates default to zero for the local demo.
 
-    AGENT_APPROVAL_TTL_SECONDS=600
+## HTTP 429 Agent rate limit
 
-## Approval 404
+Check:
 
-可能原因 / Possible reasons:
+    AGENT_RATE_LIMIT_PER_MINUTE
 
-- TTL 已過期 / expired
-- 已被 Approve / Reject / consumed
-- action_id 錯誤 / incorrect action ID
+Scope is tenant + subject. Retry after the returned retry_after_seconds.
 
-## Approval 403
+## MCP error
 
-確認 / Check:
+Supported subset:
+- server/discover
+- initialize
+- tools/list
+- tools/call
 
-- Principal Tenant 與 Approval Tenant 相同
-- Principal 具有 Required Role
-- delete_document 需要 admin
+Unsupported methods return JSON-RPC method-not-found.
 
-## Agent Tool 被 rejected
+## Dashboard has no data
 
-查看 / Inspect:
+Ensure Prometheus scrapes:
 
-    GET /api/v1/agent/tools
+    /metrics
 
-Agent Trace 會包含 Tool、status=rejected 與 reason。  
-The agent trace includes the tool, rejected status, and reason.
+Then import:
 
-## Multi-hop 沒執行 / Multi-hop did not run
+    observability/grafana-agent-dashboard.json
 
-Planner 只有在需要拆解問題時才輸出 subqueries，且受到：
+## Existing v0.5 checks
 
-    AGENT_MAX_SUBQUERIES
-    AGENT_MAX_STEPS
-
-限制。  
-The planner emits subqueries only when needed and remains bounded by those settings.
-
-## Readiness
-
-    curl http://localhost:8000/ready
-
-Dependencies:
-
-- qdrant
-- redis
-- postgres
-- object_store
-
-## OIDC / Tenant / Object Store
-
-既有 v0.4 Troubleshooting 原則仍適用。  
-Existing v0.4 troubleshooting guidance still applies.
-
-- Verify OIDC issuer/audience/JWKS.
-- Verify /api/v1/me roles and tenant.
-- Verify MinIO endpoint and credentials.
-- Re-ingest legacy chunks that do not contain tenant_id.
-
-## Helm Validation
-
-    helm lint charts/enterprise-rag
-    helm template test charts/enterprise-rag
-
-## Offline Bundle
-
-    bash scripts/offline/verify-bundle.sh ./offline-bundle
+OIDC, Tenant, MinIO/S3, Redis, Qdrant, LiteLLM, Approval and Helm troubleshooting remain applicable.
