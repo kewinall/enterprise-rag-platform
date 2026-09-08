@@ -1,7 +1,6 @@
 from app.agent.planner import ALLOWED_TOOL_NAMES, parse_plan
 from app.core.security import looks_like_prompt_injection
 
-
 ADVERSARIAL_CASES = [
     {
         "name": "ignore_instructions",
