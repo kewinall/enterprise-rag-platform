@@ -1,98 +1,105 @@
 # Enterprise RAG Platform
 
-A production-oriented Retrieval-Augmented Generation (RAG) reference platform for enterprise use cases.
+**Current release: v0.2.0**
 
-This repository demonstrates an end-to-end RAG architecture with document ingestion, chunking, embeddings, vector retrieval, lexical retrieval, reciprocal-rank fusion, optional reranking, source citations, REST APIs, metrics, containerized local deployment, evaluation utilities, and CI/security checks.
+A production-oriented Retrieval-Augmented Generation reference platform for enterprise use
+cases. The project demonstrates document ingestion, traceable metadata, vector and hybrid
+retrieval, optional reranking, grounded generation, document lifecycle APIs, evaluation,
+containerized local deployment, observability, CI and security checks.
 
-> This is a portfolio/reference implementation. It uses synthetic sample data only and does not contain customer, company, credential, or internal-environment information.
+> Portfolio/reference implementation only. All included documents are synthetic and no
+> customer, company, credential or internal-environment data is stored in this repository.
 
-## Why this project
+## What v0.2 adds
 
-Many RAG demos stop at "upload a PDF and ask a question." Enterprise deployments need more:
+- PDF page metadata and Markdown section metadata
+- deterministic document IDs and chunk lineage
+- batch ingestion
+- document list, delete and reindex operations
+- metadata filters for document ID, source, content type, page and section
+- explicit vector versus hybrid retrieval modes
+- vector-versus-hybrid quality and latency benchmark
+- expanded tests and synthetic evaluation cases
 
-- repeatable ingestion and chunking
-- retrieval quality controls
-- source traceability
-- configurable LLM backends
-- observability and health checks
-- API authentication
-- offline/local deployment options
-- evaluation before production rollout
-- container and dependency security checks
+See [docs/v0.2.md](docs/v0.2.md) and [CHANGELOG.md](CHANGELOG.md).
 
 ## Architecture
 
-```mermaid
+~~~mermaid
 flowchart LR
     U[Client / UI] --> API[FastAPI]
     API --> SEC[API Key + Guardrails]
     SEC --> RAG[RAG Service]
 
-    RAG --> RET[Hybrid Retriever]
+    RAG --> RET[Retrieval Mode]
     RET --> V[Qdrant Vector Search]
     RET --> B[BM25 Lexical Search]
     V --> F[RRF Fusion]
     B --> F
-    F --> RR[Optional Cross-Encoder Reranker]
+    F --> RR[Optional CrossEncoder Reranker]
 
-    RR --> CTX[Context Builder]
+    RR --> CTX[Context + Metadata]
     CTX --> LLM[OpenAI-Compatible LLM]
     LLM --> ANS[Answer + Citations]
 
-    ING[PDF / MD / TXT / CSV] --> PARSE[Parser]
-    PARSE --> CHUNK[Chunking]
-    CHUNK --> EMB[Sentence-Transformers Embeddings]
+    ING[PDF / MD / TXT / CSV] --> PARSE[Page / Section Parser]
+    PARSE --> CHUNK[Deterministic Chunking]
+    CHUNK --> EMB[Sentence-Transformers]
     EMB --> V
-    CHUNK --> DS[Local Document Store]
 
+    API --> DOC[Document Lifecycle]
+    DOC --> Q[Qdrant]
     API --> MET[Prometheus Metrics]
-```
+~~~
 
-## Features
+## Core capabilities
 
-### Ingestion
-- PDF, Markdown, plain text and CSV
+### Ingestion and lifecycle
+
+- PDF, Markdown, TXT and CSV
 - configurable chunk size and overlap
-- metadata preserved per chunk
-- deterministic chunk identifiers
+- deterministic document and chunk IDs
+- PDF page and Markdown section lineage
+- single-file and batch ingestion
+- idempotent replacement on re-ingest
+- list, delete and explicit reindex APIs
 
 ### Retrieval
-- semantic vector retrieval with Qdrant
+
+- Qdrant semantic vector retrieval
 - BM25 lexical retrieval
-- Reciprocal Rank Fusion (RRF)
+- Reciprocal Rank Fusion
 - optional CrossEncoder reranking
-- metadata/source filtering hooks
+- vector-only and hybrid modes
+- exact-match metadata filters
 
 ### Generation
-- OpenAI-compatible chat completion API
-- local Ollama is the default Docker example
-- replaceable with OpenAI, Azure OpenAI, vLLM, LiteLLM or other compatible endpoints
-- answers include numbered source citations
-- prompt-injection heuristic guard
 
-### Platform
-- FastAPI REST API
-- Docker / Docker Compose
-- Prometheus metrics endpoint
-- optional API-key authentication
-- health/readiness endpoints
-- structured application logging
-- CI with lint/tests
-- security workflow with pip-audit and Trivy
+- OpenAI-compatible chat completion boundary
+- local Ollama example
+- replaceable by LiteLLM, vLLM, OpenAI-compatible managed endpoints, and similar providers
+- numbered citations containing document, source, page and section lineage
+- basic prompt-injection heuristic
 
-### Evaluation
-- retrieval Recall@K
-- Mean Reciprocal Rank (MRR)
-- JSONL evaluation dataset format
-- repeatable evaluation CLI
+### Platform engineering
+
+- FastAPI
+- Docker and Docker Compose
+- Prometheus metrics
+- API-key gate
+- health and readiness endpoints
+- Ruff and pytest CI
+- pip-audit dependency scan
+- Trivy filesystem scan
 
 ## Repository structure
 
-```text
+~~~text
 .
 ├── app/
 │   ├── api/
 │   ├── core/
+│   ├── evaluation/
 │   ├── ingestion/
 │   ├── rag/
 │   └── retrieval/
@@ -107,27 +114,26 @@ flowchart LR
 ├── docker-compose.yml
 ├── pyproject.toml
 └── Makefile
-```
+~~~
 
 ## Quick start
 
-### 1. Clone and configure
+### 1. Configure
 
-```bash
-git clone https://github.com/kewinall/enterprise-rag-platform.git
-cd enterprise-rag-platform
-cp .env.example .env
-```
+    git clone https://github.com/kewinall/enterprise-rag-platform.git
+    cd enterprise-rag-platform
+    cp .env.example .env
 
-### 2. Start services
+Change RAG_API_KEY before exposing the service.
 
-```bash
-docker compose up -d --build
-```
+### 2. Start the stack
 
-Services:
+    docker compose up -d --build
+    docker compose exec ollama ollama pull llama3.2:3b
 
-| Service | Default URL |
+Default endpoints:
+
+| Service | URL |
 |---|---|
 | FastAPI | http://localhost:8000 |
 | Swagger UI | http://localhost:8000/docs |
@@ -135,122 +141,78 @@ Services:
 | Ollama | http://localhost:11434 |
 | Metrics | http://localhost:8000/metrics |
 
-### 3. Pull a local model
+### 3. Batch-ingest the synthetic sample documents
 
-The model name is configurable in `.env`.
+    curl -X POST "http://localhost:8000/api/v1/ingest/batch"       -H "X-API-Key: change-me"       -F "files=@data/sample/platform-handbook.md"       -F "files=@data/sample/security-handbook.md"
 
-```bash
-docker compose exec ollama ollama pull llama3.2:3b
-```
+### 4. List indexed documents
 
-### 4. Ingest the sample document
+    curl "http://localhost:8000/api/v1/documents"       -H "X-API-Key: change-me"
 
-```bash
-curl -X POST "http://localhost:8000/api/v1/ingest" \
-  -H "X-API-Key: change-me" \
-  -F "file=@data/sample/platform-handbook.md"
-```
+### 5. Run filtered hybrid search
 
-### 5. Ask a question
+    curl -X POST "http://localhost:8000/api/v1/search"       -H "Content-Type: application/json"       -H "X-API-Key: change-me"       -d '{
+        "query": "How should administrative access be granted?",
+        "top_k": 5,
+        "mode": "hybrid",
+        "filters": {
+          "source": "security-handbook.md",
+          "section": "Identity and Access"
+        }
+      }'
 
-```bash
-curl -X POST "http://localhost:8000/api/v1/query" \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: change-me" \
-  -d '{
-    "question": "What is the recommended production change process?",
-    "top_k": 5
-  }'
-```
+### 6. Ask a grounded question
 
-Example response shape:
+    curl -X POST "http://localhost:8000/api/v1/query"       -H "Content-Type: application/json"       -H "X-API-Key: change-me"       -d '{
+        "question": "What should happen before a production release?",
+        "top_k": 5,
+        "mode": "hybrid"
+      }'
 
-```json
-{
-  "answer": "Production changes should be tested, reviewed, and released through a controlled deployment process [1].",
-  "citations": [
-    {
-      "id": 1,
-      "source": "platform-handbook.md",
-      "chunk_id": "..."
-    }
-  ],
-  "retrieval": {
-    "candidates": 10,
-    "used": 5
-  }
-}
-```
-
-## Local development
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-cp .env.example .env
-uvicorn app.main:app --reload
-```
-
-Run checks:
-
-```bash
-make lint
-make test
-```
-
-## API endpoints
+## Document lifecycle API
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/health` | liveness |
-| GET | `/ready` | dependency readiness |
-| GET | `/metrics` | Prometheus metrics |
-| POST | `/api/v1/ingest` | ingest one file |
-| POST | `/api/v1/search` | retrieval only |
-| POST | `/api/v1/query` | RAG answer with citations |
+| POST | /api/v1/ingest | ingest or replace one file |
+| POST | /api/v1/ingest/batch | ingest multiple files |
+| GET | /api/v1/documents | list indexed documents and metadata |
+| DELETE | /api/v1/documents/{document_id} | delete all chunks for a document |
+| PUT | /api/v1/documents/{document_id}/reindex | replace a document while keeping its ID |
+| POST | /api/v1/search | retrieval only |
+| POST | /api/v1/query | RAG answer with citations |
 
-## Configuration
+## Retrieval filters
 
-Important environment variables are documented in `.env.example`.
+Search and query requests can filter by:
 
-Key options include:
+- document_id
+- source
+- content_type
+- page
+- section
 
-- `QDRANT_URL`
-- `QDRANT_COLLECTION`
-- `EMBEDDING_MODEL`
-- `RERANKER_MODEL`
-- `ENABLE_RERANKER`
-- `LLM_BASE_URL`
-- `LLM_API_KEY`
-- `LLM_MODEL`
-- `RAG_API_KEY`
-- `CHUNK_SIZE`
-- `CHUNK_OVERLAP`
+All supplied fields are combined using AND semantics in Qdrant and the hybrid lexical corpus.
 
-## Evaluation
+## Evaluation and benchmarking
 
-```bash
-python scripts/evaluate_retrieval.py \
-  --dataset data/eval/retrieval_eval.jsonl \
-  --k 5
-```
+Evaluate hybrid retrieval:
 
-See [docs/evaluation.md](docs/evaluation.md).
+    python scripts/evaluate_retrieval.py       --dataset data/eval/retrieval_eval.jsonl       --k 5       --mode hybrid
 
-## Security notes
+Compare vector and hybrid retrieval:
 
-This project intentionally includes:
-- API-key authentication option
-- no secrets committed to source control
-- prompt-injection heuristic screening
-- dependency audit workflow
-- Trivy filesystem scan
-- explicit production-hardening guidance
+    make benchmark
 
-The included controls are reference controls, not a substitute for enterprise IAM, network security, DLP, secret management or model governance.
+The benchmark reports Recall@K, MRR and average retrieval latency.
 
-See [docs/security.md](docs/security.md).
+## Local development
+
+    python -m venv .venv
+    source .venv/bin/activate
+    pip install -e ".[dev]"
+    cp .env.example .env
+    make lint
+    make test
 
 ## Documentation
 
@@ -258,18 +220,20 @@ See [docs/security.md](docs/security.md).
 - [Installation](docs/installation.md)
 - [RAG design](docs/rag-design.md)
 - [Evaluation](docs/evaluation.md)
+- [v0.2 feature guide](docs/v0.2.md)
 - [Security](docs/security.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Roadmap](docs/roadmap.md)
+- [Changelog](CHANGELOG.md)
 
 ## Design principles
 
-1. **Provider-neutral** — use an OpenAI-compatible LLM boundary instead of hard-coding one vendor.
-2. **Retrieval-first** — retrieval can be tested independently from generation.
-3. **Traceable** — every answer should preserve source/chunk lineage.
-4. **Testable** — deterministic utilities are unit-tested without requiring a live LLM.
-5. **Local-first** — Docker Compose can run the platform without sending enterprise documents to an external model.
-6. **Production-aware** — configuration, metrics, security and evaluation are part of the design.
+1. **Provider-neutral** — generation is isolated behind an OpenAI-compatible boundary.
+2. **Retrieval-first** — retrieval can be benchmarked independently from generation.
+3. **Traceable** — document, chunk, page and section lineage are preserved.
+4. **Testable** — core deterministic utilities are unit-tested without a live LLM.
+5. **Local-first** — the default stack can keep documents and generation local.
+6. **Production-aware** — security, lifecycle, observability and evaluation are part of the design.
 
 ## License
 

@@ -1,3 +1,6 @@
 {"question":"What should happen before a production release?","expected_source":"platform-handbook.md"}
-{"question":"How should credentials be handled?","expected_source":"platform-handbook.md"}
 {"question":"What should operators check when a data pipeline fails?","expected_source":"platform-handbook.md"}
+{"question":"When is a backup considered reliable?","expected_source":"platform-handbook.md"}
+{"question":"How should administrative access be granted?","expected_source":"security-handbook.md"}
+{"question":"How should documents used by retrieval systems be treated?","expected_source":"security-handbook.md"}
+{"question":"What should be evaluated before changing a production model?","expected_source":"security-handbook.md"}

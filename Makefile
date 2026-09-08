@@ -12,3 +12,6 @@ test:
 
 evaluate:
 	python scripts/evaluate_retrieval.py --dataset data/eval/retrieval_eval.jsonl --k 5
+
+benchmark:
+	python scripts/benchmark_retrieval.py --dataset data/eval/retrieval_eval.jsonl --k 5
