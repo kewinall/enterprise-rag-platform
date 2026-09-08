@@ -57,16 +57,12 @@ async def get_agent_session(
     principal: Principal = PrincipalDep,
 ) -> dict:
     require_role(principal, ROLE_VIEWER)
-    session = await get_agent_state_store().get_session(
-        str(session_id),
-        principal.tenant_id,
-    )
+    session_key = str(session_id)
+    store = get_agent_state_store()
+    session = await store.get_session(session_key, principal.tenant_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Agent session not found")
-    checkpoint = await get_agent_state_store().latest_checkpoint(
-        str(session_id),
-        principal.tenant_id,
-    )
+    checkpoint = await store.latest_checkpoint(session_key, principal.tenant_id)
     return {"session": session, "latest_checkpoint": checkpoint}
 
 
@@ -91,11 +87,12 @@ async def list_agent_memory(
     principal: Principal = PrincipalDep,
 ) -> dict:
     require_role(principal, ROLE_VIEWER)
+    session_key = str(session_id)
     store = get_agent_state_store()
-    if await store.get_session(str(session_id), principal.tenant_id) is None:
+    if await store.get_session(session_key, principal.tenant_id) is None:
         raise HTTPException(status_code=404, detail="Agent session not found")
-    items = await store.list_memory(str(session_id), principal.tenant_id)
-    return {"session_id": str(session_id), "count": len(items), "items": items}
+    items = await store.list_memory(session_key, principal.tenant_id)
+    return {"session_id": session_key, "count": len(items), "items": items}
 
 
 @v06_router.put("/agent/sessions/{session_id}/memory")
@@ -106,13 +103,14 @@ async def put_agent_memory(
 ) -> dict:
     require_role(principal, ROLE_VIEWER)
     settings = get_settings()
+    session_key = str(session_id)
     store = get_agent_state_store()
-    if await store.get_session(str(session_id), principal.tenant_id) is None:
+    if await store.get_session(session_key, principal.tenant_id) is None:
         raise HTTPException(status_code=404, detail="Agent session not found")
     retention = request.retention_days or settings.agent_memory_default_retention_days
     retention = min(retention, settings.agent_memory_max_retention_days)
     return await store.upsert_memory(
-        session_id=str(session_id),
+        session_id=session_key,
         tenant_id=principal.tenant_id,
         key=request.key,
         value=request.value,
@@ -127,14 +125,15 @@ async def delete_agent_memory(
     principal: Principal = PrincipalDep,
 ) -> dict:
     require_role(principal, ROLE_VIEWER)
+    session_key = str(session_id)
     deleted = await get_agent_state_store().delete_memory(
-        str(session_id),
+        session_key,
         principal.tenant_id,
         key,
     )
     if deleted == 0:
         raise HTTPException(status_code=404, detail="Memory not found")
-    return {"session_id": str(session_id), "key": key, "deleted": True}
+    return {"session_id": session_key, "key": key, "deleted": True}
 
 
 @v06_router.post("/agent/jobs")
@@ -145,16 +144,20 @@ async def create_agent_job(
     require_role(principal, ROLE_VIEWER)
     await _check_rate(principal)
     store = get_agent_state_store()
-    if str(request.session_id) if request.session_id is not None else None is not None:
-        session = await store.get_session(request.str(session_id), principal.tenant_id)
+    session_key = str(request.session_id) if request.session_id is not None else None
+    if session_key is not None:
+        session = await store.get_session(session_key, principal.tenant_id)
         if session is None:
             raise HTTPException(status_code=404, detail="Agent session not found")
     return await store.create_job(
-        session_id=request.str(session_id),
+        session_id=session_key,
         tenant_id=principal.tenant_id,
         subject=principal.subject,
         roles=sorted(principal.roles),
-        request=request.model_dump(),
+        request={
+            **request.model_dump(mode="json"),
+            "session_id": session_key,
+        },
     )
 
 
@@ -175,10 +178,7 @@ async def evaluate_agent_adversarial(
     principal: Principal = PrincipalDep,
 ) -> dict:
     require_role(principal, ROLE_VIEWER)
-    return {
-        "tenant_id": principal.tenant_id,
-        **evaluate_adversarial_cases(),
-    }
+    return {"tenant_id": principal.tenant_id, **evaluate_adversarial_cases()}
 
 
 def _mcp_error(request_id, code: int, message: str) -> dict:
