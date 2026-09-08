@@ -1,50 +1,41 @@
 # 架構 / Architecture
 
-## 設計概念 / Design concept
+## v0.3 架構概念 / v0.3 architecture concept
 
 **繁體中文**  
-平台將 Ingestion、Retrieval、Generation 與 Operational Concern 分層，讓各層可以獨立測試、替換與擴充，降低 Provider、Vector DB 或 LLM 的耦合。
+平台將 Data Plane、Model Gateway、State Store 與 Observability 分離。FastAPI 負責 API 與 Orchestration；Qdrant / BM25 負責 Retrieval；LiteLLM 隔離 Model Provider；Redis 降低重複 Generation；PostgreSQL 保存 Request Audit；OpenTelemetry 將 Runtime Trace 送往 Collector。
 
 **English**  
-The platform separates ingestion, retrieval, generation, and operational concerns so each layer can be tested, replaced, and extended independently.
+The platform separates the data plane, model gateway, state stores, and observability. FastAPI handles APIs and orchestration; Qdrant/BM25 handle retrieval; LiteLLM isolates model providers; Redis reduces duplicate generation; PostgreSQL stores request audit records; and OpenTelemetry exports runtime traces to a collector.
 
 ## Runtime Flow / 執行流程
 
-1. Client → FastAPI  
-   - 繁中：Client 呼叫 FastAPI Endpoint。  
-   - English: A client calls the FastAPI endpoint.
-2. Security Gate  
-   - 繁中：先執行 API Key 驗證與基本 Prompt Injection Screening。  
-   - English: API-key validation and basic prompt-injection screening run first.
-3. Retrieval  
-   - 繁中：依 Vector 或 Hybrid Mode 查詢 Qdrant / BM25。  
-   - English: Retrieval runs against Qdrant and optionally BM25 depending on the selected mode.
-4. Context Build  
-   - 繁中：將 Retrieved Chunks 與 Page / Section Metadata 組成編號 Context。  
-   - English: Retrieved chunks and page/section metadata are converted into numbered context blocks.
-5. Generation  
-   - 繁中：OpenAI-compatible LLM 產生 Grounded Answer。  
-   - English: An OpenAI-compatible LLM generates a grounded answer.
-6. Response  
-   - 繁中：API 回傳 Answer 與 Citation Lineage。  
-   - English: The API returns the answer with citation lineage.
+1. Client / Web UI 呼叫 FastAPI / calls FastAPI.
+2. API Key 與 Prompt Injection Heuristic 先執行 / security checks run first.
+3. Query 先查 Redis Cache / checks Redis cache first.
+4. Cache Miss 時執行 Vector 或 Hybrid Retrieval / retrieval runs on cache miss.
+5. Context 送至 LiteLLM / context is sent to LiteLLM.
+6. LiteLLM 將 enterprise-rag Route 到 Ollama / routes enterprise-rag to Ollama.
+7. Answer + Citation 回傳 Client / returned to the client.
+8. Response 可寫入 Redis / may be cached in Redis.
+9. Request Metadata 寫入 PostgreSQL Audit / request metadata is audited to PostgreSQL.
+10. HTTP、Retrieval、LLM、Evaluation Span 送往 OTel Collector / spans are exported to the OTel Collector.
+
+## Security / Privacy Boundary
+
+**繁體中文**  
+Audit Store 預設不保存 Request Body、Prompt、Document Content，只記錄 Request ID、Method、Path、Status、Latency 與低敏 Metadata。Telemetry 也不寫入 Prompt / Context 本文。
+
+**English**  
+The audit store does not persist request bodies, prompts, or document content by default. It records request ID, method, path, status, latency, and low-sensitivity metadata. Telemetry spans also avoid prompt/context bodies.
 
 ## Extension Point / 擴充點
 
-- Hybrid BM25 + Vector Retrieval
-- Reranking
-- Metadata Filter
-- Tenant Isolation
-- PostgreSQL / pgvector
-- S3 / MinIO Document Storage
-- LiteLLM Model Routing
-- OpenTelemetry Tracing
-- Production IAM / Secret Management
-
-## Production Topology / 正式環境拓樸
-
-**繁體中文**  
-正式環境建議將 API、Vector Database、Object Storage、Telemetry、Model Gateway 拆分成可獨立維運的服務。API 前方應配置 Enterprise Identity-aware Access Control、Reverse Proxy 或 API Gateway，並將 Secret、Audit、Network Policy 與 Egress Control 納入平台治理。
-
-**English**  
-For production, run the API, vector database, object storage, telemetry, and model gateway as separately managed services. Place the API behind enterprise identity-aware access control and a reverse proxy/API gateway, with secrets, auditing, network policy, and egress controls managed explicitly.
+- Cloud LLM / Local LLM Routing through LiteLLM
+- PostgreSQL HA / Managed PostgreSQL
+- Redis Cluster / Managed Redis
+- Grafana Tempo / Jaeger / vendor OTLP backend
+- OIDC / RBAC
+- MinIO / S3
+- Multi-tenant Vector Collections
+- Secret Manager / Vault

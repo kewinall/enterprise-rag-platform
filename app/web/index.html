@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Enterprise RAG Platform</title>
+  <style>
+    :root { font-family: Inter, system-ui, sans-serif; color-scheme: light dark; }
+    body { max-width: 1100px; margin: 0 auto; padding: 24px; line-height: 1.55; }
+    header { margin-bottom: 24px; }
+    .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit,minmax(300px,1fr)); }
+    .card { border: 1px solid #8886; border-radius: 12px; padding: 18px; }
+    label { display:block; font-weight:600; margin:10px 0 5px; }
+    input, textarea, select, button { width:100%; box-sizing:border-box; padding:10px; }
+    textarea { min-height:110px; resize:vertical; }
+    button { margin-top:10px; cursor:pointer; font-weight:600; }
+    .muted { opacity:.72; font-size:.92rem; }
+    .status { white-space:pre-wrap; margin-top:10px; }
+    .answer { white-space:pre-wrap; padding:12px; border-left:4px solid currentColor; margin-top:12px; }
+    .citation { border-top:1px solid #8885; padding:8px 0; font-size:.92rem; }
+    ul { padding-left:22px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Enterprise RAG Platform</h1>
+  <p>企業級 RAG 展示介面 / Enterprise RAG demonstration UI</p>
+  <p class="muted">v0.3 · Upload · Chat · Citations · Document lifecycle</p>
+</header>
+
+<div class="card">
+  <label for="apiKey">API Key / API 金鑰</label>
+  <input id="apiKey" type="password" value="change-me" autocomplete="off">
+  <p class="muted">只保存在目前瀏覽器 Session / Stored only in the current browser session.</p>
+</div>
+
+<div class="grid">
+  <section class="card">
+    <h2>文件匯入 / Document upload</h2>
+    <input id="files" type="file" multiple accept=".pdf,.md,.txt,.csv">
+    <button id="uploadButton">批次匯入 / Batch ingest</button>
+    <div id="uploadStatus" class="status muted"></div>
+  </section>
+
+  <section class="card">
+    <h2>已索引文件 / Indexed documents</h2>
+    <button id="refreshDocuments">重新整理 / Refresh</button>
+    <ul id="documents"></ul>
+  </section>
+</div>
+
+<section class="card" style="margin-top:18px">
+  <h2>RAG Chat / RAG 問答</h2>
+  <label for="mode">Retrieval Mode</label>
+  <select id="mode">
+    <option value="hybrid">Hybrid</option>
+    <option value="vector">Vector</option>
+  </select>
+  <label for="question">問題 / Question</label>
+  <textarea id="question" placeholder="例如：What should happen before a production release?"></textarea>
+  <button id="askButton">送出問題 / Ask</button>
+  <div id="queryStatus" class="status muted"></div>
+  <div id="answer" class="answer"></div>
+  <div id="citations"></div>
+</section>
+
+<script>
+const apiKey = document.getElementById("apiKey");
+const uploadStatus = document.getElementById("uploadStatus");
+const queryStatus = document.getElementById("queryStatus");
+const answer = document.getElementById("answer");
+const citations = document.getElementById("citations");
+const documents = document.getElementById("documents");
+
+apiKey.value = sessionStorage.getItem("rag-api-key") || "change-me";
+apiKey.addEventListener("change", function () {
+  sessionStorage.setItem("rag-api-key", apiKey.value);
+});
+
+function headers(json) {
+  const h = {"X-API-Key": apiKey.value};
+  if (json) h["Content-Type"] = "application/json";
+  return h;
+}
+
+async function readJson(response) {
+  const payload = await response.json();
+  if (!response.ok) {
+    const detail = payload.detail || JSON.stringify(payload);
+    throw new Error(detail);
+  }
+  return payload;
+}
+
+async function refreshDocuments() {
+  documents.replaceChildren();
+  try {
+    const response = await fetch("/api/v1/documents", {headers: headers(false)});
+    const payload = await readJson(response);
+    payload.documents.forEach(function (doc) {
+      const li = document.createElement("li");
+      li.textContent = doc.source + " · chunks=" + doc.chunks;
+      documents.appendChild(li);
+    });
+    if (!payload.count) {
+      const li = document.createElement("li");
+      li.textContent = "尚無文件 / No documents indexed.";
+      documents.appendChild(li);
+    }
+  } catch (error) {
+    const li = document.createElement("li");
+    li.textContent = "Error: " + error.message;
+    documents.appendChild(li);
+  }
+}
+
+document.getElementById("refreshDocuments").addEventListener("click", refreshDocuments);
+
+document.getElementById("uploadButton").addEventListener("click", async function () {
+  const input = document.getElementById("files");
+  if (!input.files.length) {
+    uploadStatus.textContent = "請先選擇檔案 / Select files first.";
+    return;
+  }
+  const form = new FormData();
+  Array.from(input.files).forEach(function (file) { form.append("files", file); });
+  uploadStatus.textContent = "匯入中 / Ingesting...";
+  try {
+    const response = await fetch("/api/v1/ingest/batch", {
+      method: "POST",
+      headers: headers(false),
+      body: form
+    });
+    const payload = await readJson(response);
+    uploadStatus.textContent = "完成 / Completed: " + payload.count + " file(s)";
+    await refreshDocuments();
+  } catch (error) {
+    uploadStatus.textContent = "Error: " + error.message;
+  }
+});
+
+document.getElementById("askButton").addEventListener("click", async function () {
+  const question = document.getElementById("question").value.trim();
+  if (!question) {
+    queryStatus.textContent = "請輸入問題 / Enter a question.";
+    return;
+  }
+
+  answer.textContent = "";
+  citations.replaceChildren();
+  queryStatus.textContent = "查詢中 / Querying...";
+
+  try {
+    const response = await fetch("/api/v1/query", {
+      method: "POST",
+      headers: headers(true),
+      body: JSON.stringify({
+        question: question,
+        top_k: 5,
+        mode: document.getElementById("mode").value,
+        use_cache: true
+      })
+    });
+    const payload = await readJson(response);
+    answer.textContent = payload.answer;
+    const cacheState = payload.cache && payload.cache.hit ? "HIT" : "MISS";
+    queryStatus.textContent = "Retrieval=" + payload.retrieval.mode + " · Cache=" + cacheState;
+
+    payload.citations.forEach(function (item) {
+      const div = document.createElement("div");
+      div.className = "citation";
+      let location = "[" + item.id + "] " + item.source;
+      if (item.page) location += " · page " + item.page;
+      if (item.section) location += " · " + item.section;
+      div.textContent = location;
+      citations.appendChild(div);
+    });
+  } catch (error) {
+    queryStatus.textContent = "Error: " + error.message;
+  }
+});
+
+refreshDocuments();
+</script>
+</body>
+</html>

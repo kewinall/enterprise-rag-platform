@@ -1,51 +1,61 @@
 # 評測 / Evaluation
 
-## 為什麼需要 Evaluation / Why evaluation matters
+## Retrieval Evaluation
 
 **繁體中文**  
-在調整 Chunking、Embedding、Top-K、Reranker 或 Prompt 前，應先以固定 Evaluation Dataset 量測品質，避免只憑主觀回答判斷 RAG 是否改善。
+Retrieval Quality 應在調整 Chunking、Embedding、Top-K、Reranker 前先量測，避免只看主觀回答。
 
 **English**  
-RAG quality should be measured with a stable evaluation dataset before changing chunking, embeddings, top-k, rerankers, or prompts.
+Retrieval quality should be measured before changing chunking, embeddings, top-k, or rerankers.
 
-## 已提供的 Metrics / Included metrics
+Metrics:
+- Recall@K
+- MRR
+- Average Retrieval Latency
 
-- Recall@K — Expected Source 是否出現在 Top K / whether the expected source appears in the top K.
-- MRR — Expected Source 排名越前分數越高 / how highly the expected source ranks.
-- Average Latency — 平均 Retrieval Latency（ms）/ average retrieval latency in milliseconds.
+執行 / Run:
 
-## 評估單一 Retrieval Mode / Evaluate one retrieval mode
+    make benchmark
 
-    python scripts/evaluate_retrieval.py \
-      --dataset data/eval/retrieval_eval.jsonl \
-      --k 5 \
-      --mode hybrid
-
-支援 / Supported: vector, hybrid.
-
-## 比較 Vector 與 Hybrid / Compare vector and hybrid retrieval
-
-    python scripts/benchmark_retrieval.py \
-      --dataset data/eval/retrieval_eval.jsonl \
-      --k 5
+## RAGAS-style Answer Evaluation
 
 **繁體中文**  
-Benchmark 使用相同 Evaluation Cases 分別跑 Vector 與 Hybrid，輸出 Recall@K、MRR 與 Average Latency。執行前請先匯入兩份 Synthetic Handbook。
+v0.3 新增 LLM-as-a-Judge Evaluator。此實作採用 RAGAS 常見概念，但不硬依賴 Ragas Python Package，降低 Framework API 版本變動與額外 Dependency 對主 Runtime 的影響。
 
 **English**  
-The benchmark runs the same evaluation cases through both retrieval modes and reports Recall@K, MRR, and average latency. Ingest both sample handbooks before running it.
+v0.3 adds an LLM-as-a-Judge evaluator using common RAGAS-style concepts without hard-depending on the Ragas Python package, reducing framework API churn and runtime dependency surface.
+
+Metrics:
+
+- **Faithfulness** — Answer Claims 是否由 Retrieved Context 支持 / whether answer claims are supported by retrieved context.
+- **Answer Relevance** — Answer 是否回應原 Question / whether the answer addresses the question.
+- **Context Relevance** — Retrieved Context 是否與 Question 相關 / whether contexts are relevant.
+- **Answer Correctness** — 有 Reference 時比較 Answer / compares against a reference when provided.
+
+API:
+
+    POST /api/v1/evaluate/answer
+
+CLI:
+
+    make evaluate-answers
+
+## Evaluator Model
+
+**繁體中文**  
+預設 Evaluator 使用與 RAG Generation 相同的 LLM Gateway / Model。可透過 EVALUATOR_LLM_BASE_URL、EVALUATOR_LLM_API_KEY、EVALUATOR_LLM_MODEL 指定獨立 Judge Model。
+
+**English**  
+By default, evaluation uses the same gateway/model as generation. EVALUATOR_LLM_BASE_URL, EVALUATOR_LLM_API_KEY, and EVALUATOR_LLM_MODEL can point to a separate judge model.
 
 ## Production Evaluation / 正式環境建議
 
-建議後續加入 / Recommended additions:
+後續可加入 / Recommended additions:
 
-- Precision@K / NDCG
-- Answer Faithfulness
-- Answer Relevance
+- Context Precision / Recall
+- NDCG
 - Citation Correctness
-- Latency Percentile
+- Latency P50 / P95 / P99
 - Token Usage / Cost
 - Task Success Rate
-
-**繁體中文**：公開 Repository 的 Evaluation Dataset 應使用 Synthetic Data 或經核准可公開資料。  
-**English**: Keep evaluation datasets synthetic or properly approved for public repositories.
+- Human Review Sample
