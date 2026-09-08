@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "enterprise-rag-platform"
-version = "0.3.0"
+version = "0.4.0"
 description = "Production-oriented enterprise RAG reference platform"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -25,7 +25,9 @@ dependencies = [
   "redis>=6,<8",
   "opentelemetry-api>=1.30,<2",
   "opentelemetry-sdk>=1.30,<2",
-  "opentelemetry-exporter-otlp-proto-http>=1.30,<2"
+  "opentelemetry-exporter-otlp-proto-http>=1.30,<2",
+  "PyJWT[crypto]>=2.10,<3",
+  "boto3>=1.40,<2"
 ]
 
 [project.optional-dependencies]
