@@ -20,6 +20,7 @@ async def answer_question(
     limit = top_k or settings.final_top_k
     scoped_filters = {**(filters or {}), "tenant_id": tenant_id}
     cache = get_cache_store()
+    tenant_revision = await cache.get_tenant_revision(tenant_id)
     cache_key = make_rag_cache_key(
         question=question,
         top_k=limit,
@@ -27,6 +28,7 @@ async def answer_question(
         filters=scoped_filters,
         model=settings.llm_model,
         tenant_id=tenant_id,
+        tenant_revision=tenant_revision,
     )
 
     if use_cache:
@@ -76,7 +78,11 @@ async def answer_question(
                 "mode": mode,
                 "filters": filters or {},
             },
-            "cache": {"hit": False, "ttl_seconds": settings.cache_ttl_seconds},
+            "cache": {
+                "hit": False,
+                "ttl_seconds": settings.cache_ttl_seconds,
+                "tenant_revision": tenant_revision,
+            },
         }
         span.set_attribute("rag.retrieval.result_count", len(results))
 
