@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "enterprise-rag-platform"
-version = "0.2.0"
+version = "0.3.0"
 description = "Production-oriented enterprise RAG reference platform"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,7 +20,12 @@ dependencies = [
   "transformers>=5.16.1,<6",
   "rank-bm25>=0.2.2,<1",
   "pypdf>=6.17.0,<7",
-  "prometheus-client>=0.20,<1"
+  "prometheus-client>=0.20,<1",
+  "asyncpg>=0.30,<1",
+  "redis>=6,<8",
+  "opentelemetry-api>=1.30,<2",
+  "opentelemetry-sdk>=1.30,<2",
+  "opentelemetry-exporter-otlp-proto-http>=1.30,<2"
 ]
 
 [project.optional-dependencies]
