@@ -10,6 +10,8 @@ ALLOWED_TOOL_NAMES = {
     "search_knowledge",
     "list_documents",
     "get_document_metadata",
+    "get_platform_status",
+    "get_recent_audit_events",
     "delete_document",
 }
 
@@ -57,6 +59,8 @@ async def plan_query(question: str) -> AgentPlan:
         "search_knowledge arguments: query, top_k, mode. "
         "list_documents takes no arguments. "
         "get_document_metadata arguments: document_id. "
+        "get_platform_status takes no arguments. "
+        "get_recent_audit_events arguments: limit. "
         "delete_document arguments: document_id and always requires human approval. "
         "For normal questions, include at least one search_knowledge tool call. "
         "Use subqueries only when the question requires multi-hop retrieval. "

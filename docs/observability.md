@@ -2,63 +2,53 @@
 
 ## OpenTelemetry
 
-**繁體中文**  
-平台使用 OpenTelemetry Manual Instrumentation。設定 OTEL_EXPORTER_OTLP_TRACES_ENDPOINT 後會使用 OTLP HTTP Export；未設定時使用 Console Exporter。
-
-**English**  
-The platform uses manual OpenTelemetry instrumentation. When OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is configured, traces are exported over OTLP HTTP; otherwise the console exporter is used.
-
-## RAG Spans
-
+Existing spans:
 - http.request
 - rag.retrieve
 - rag.answer_question
 - llm.chat_completion
-- rag.evaluate_answer
-
-## Agent Spans
-
-v0.5 adds:
-
 - agent.run
 - agent.plan
 - agent.context_critic
 - agent.answer_critic
 
-Agent Tool Execution 仍可從 agent.run Trace 與 API Response Trace 交叉確認。  
-Agent tool execution can be correlated through the agent.run trace and the API response trace.
+Prompt / Context / Answer bodies are not written into span attributes.
 
-## Data Minimization / 資料最小化
+## Prometheus Agent Metrics
 
-**繁體中文**  
-Span 記錄 Operational Metadata，例如 Model、Retrieval Mode、Top-K、Tenant ID、Result Count、HTTP Status。Question、Prompt、Context、Answer Body 不寫入 Span Attribute。
+v0.6 adds:
 
-**English**  
-Spans record operational metadata such as model, retrieval mode, top-k, tenant ID, result count, and HTTP status. Questions, prompts, contexts, and answer bodies are not written to span attributes.
+- enterprise_rag_agent_runs_total
+- enterprise_rag_agent_tool_calls_total
+- enterprise_rag_agent_approvals_total
+- enterprise_rag_agent_rate_limited_total
+- enterprise_rag_agent_budget_exceeded_total
+- enterprise_rag_agent_run_duration_seconds
+- enterprise_rag_agent_llm_tokens_total
+- enterprise_rag_agent_estimated_cost_usd_total
+- enterprise_rag_agent_jobs_pending
 
-## Local Collector
+Endpoint:
 
-    docker compose logs -f otel-collector
+    /metrics
 
-## Production Backend
+## Grafana Dashboard
 
-可替換 / Can be replaced with:
+Import:
 
-- Grafana Tempo
-- Jaeger
-- OpenTelemetry-compatible APM
-- Enterprise observability platform
+    observability/grafana-agent-dashboard.json
 
-## Recommended Agent Dashboard
-
-後續建議 / Recommended:
+Panels:
 
 - Agent Runs
-- Planner Latency
-- Tool Calls per Run
-- Approval Required Rate
-- Approval Reject Rate
-- Corrective Retrieval Rate
-- Revision Rate
-- Groundedness / Relevance Distribution
-- Token / Cost per Agent Run
+- Rate Limited
+- Budget Exceeded
+- Estimated LLM Cost
+- Runs by Status
+- Tool Calls
+- Agent P95 Latency
+- LLM Tokens
+
+## Production
+
+Prometheus can scrape the API metrics endpoint; Grafana may use the included dashboard as a starting point. OpenTelemetry traces can be exported to Tempo, Jaeger, or another compatible backend.

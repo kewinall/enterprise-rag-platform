@@ -1,55 +1,36 @@
 # 開發路線圖 / Roadmap
 
-## v0.2 — 已發布 / Released
+## v0.2 — Released
+Document lifecycle, metadata, hybrid retrieval, benchmark.
 
-- Page / Section Metadata
-- Batch Ingestion
-- Document Lifecycle
-- Vector / Hybrid Retrieval
-- Retrieval Benchmark
+## v0.3 — Released
+Answer evaluation, OpenTelemetry, PostgreSQL audit, Redis cache, LiteLLM, Web UI.
 
-## v0.3 — 已發布 / Released
+## v0.4 — Released
+OIDC/RBAC, multi-tenancy, MinIO/S3, Kubernetes/Helm, offline delivery.
 
-- RAGAS-style Answer Evaluation
-- OpenTelemetry
-- PostgreSQL Audit
-- Redis Cache
-- LiteLLM Gateway
-- Web UI
+## v0.5 — Released
+Agentic RAG, multi-hop/corrective retrieval, critics, tools, approval, agent evaluation.
 
-## v0.4 — 已發布 / Released
-
-- OIDC / RBAC
-- Multi-tenancy
-- MinIO / S3
-- Kubernetes / Helm
-- External Secrets Example
-- Offline Installation Bundle
-- Cache Revision Invalidation
-
-## v0.5 — 已完成 / Released
-
-- Agentic RAG Orchestration
-- Query Planning / Rewrite
-- Multi-hop Retrieval
-- Context Critic
-- Corrective Retrieval
-- Answer Critic / Revision
-- Tool Calling
-- Tool Permission Policy
-- Human Approval Gate
-- Agent Trace
-- Agent Evaluation
-- Agentic Web UI
-
-## v0.6 — 規劃中 / Planned
+## v0.6 — Released
 
 - Durable Agent Session / Checkpoint
-- Async Background Agent Jobs
-- Agent Memory with explicit retention policy
+- Durable Async Jobs
+- Explicit Memory + Retention
 - Read-only Data Platform Tools
 - MCP-compatible Tool Adapter
-- Cost / Token Budget Enforcement
-- Agent Rate Limits
-- OpenTelemetry Agent Dashboard
-- Expanded Adversarial / Prompt Injection Evaluation
+- Token / Cost Budget
+- Agent Rate Limit
+- Prometheus / Grafana Agent Dashboard
+- Adversarial Prompt / Tool Injection Evaluation
+
+## v0.7 — Planned
+
+- Dedicated external Worker deployment
+- Job cancellation / retry / dead-letter policy
+- Full MCP transport SDK integration
+- Per-tool quota and cost policy
+- Approval audit table / two-person approval
+- Session export / retention administration
+- Distributed tracing across API / Worker / Tool
+- Load / chaos / failover tests

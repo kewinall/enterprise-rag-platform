@@ -1,99 +1,61 @@
 # 安全 / Security
 
-## Scope / 定位
-
-**繁體中文**  
-本 Repository 是 Enterprise AI Security Reference Implementation，不是完整 IAM / DLP / SIEM / Secret Platform。
-
-**English**  
-This repository is an enterprise AI security reference implementation, not a complete IAM, DLP, SIEM, or secret-management platform.
-
-## Existing Platform Controls
+## Core Controls
 
 - OIDC JWT Validation
 - Viewer / Editor / Admin RBAC
 - Server-enforced Tenant Isolation
-- MinIO / S3 Tenant Boundary
-- PostgreSQL Audit
-- Redis Tenant Cache Revision
-- OpenTelemetry Data Minimization
-- Existing Secret Reference / External Secrets Example
-- Non-root Kubernetes Runtime
-- NetworkPolicy
-- pip-audit
-- Trivy
+- Tool Allowlist
+- Human Approval for destructive tools
+- MinIO / S3 tenant boundary
+- Secret externalization
+- Non-root Kubernetes runtime
+- pip-audit / Trivy
 
-## Agent Tool Security
-
-**繁體中文**  
-Agent Planner 不具備直接 Tool Execution 權限。Planner Output 只是「提案」，Server Tool Registry 仍會重新驗證 Tool Name、Role、Tenant 與 Approval Policy。
-
-**English**  
-The planner does not receive direct tool-execution authority. Planner output is only a proposal; the server-side tool registry re-validates tool name, role, tenant, and approval policy.
-
-Allowed tools:
-
-| Tool | Required Role | Human Approval |
-|---|---|---|
-| search_knowledge | viewer | No |
-| list_documents | viewer | No |
-| get_document_metadata | viewer | No |
-| delete_document | admin | Yes |
-
-Not exposed:
-
-- arbitrary shell
-- arbitrary HTTP
-- raw SQL
-- arbitrary filesystem write
-- unrestricted Python/code execution
-- cloud administration credentials
-
-## Human Approval Gate
+## Durable State
 
 **繁體中文**
-- Destructive Tool 必須先通過 Admin Role。
-- Approval Request 綁定 Tenant。
-- Approval 有 TTL。
-- Approve / Reject 都會再次檢查 Tenant 與 Required Role。
-- Approval Request 採單次消耗。
+- Session / Checkpoint / Job / Memory 都包含 tenant_id。
+- Memory 只由使用者明確寫入，不自動永久保存聊天內容。
+- Memory 有 expires_at 與 Server-side retention cap。
+- Restart recovery 只重新排程未完成 Job，不會改變 Role/Tenant。
 
 **English**
-- Destructive tools first require the Admin role.
-- Approval requests are tenant-bound.
-- Approvals expire through TTL.
-- Approve/reject operations re-check tenant and required role.
-- Approval requests are single-consumption.
+- Session, checkpoint, job, and memory records contain tenant_id.
+- Memory is explicitly written by users and does not automatically persist conversation history.
+- Memory has expires_at and a server-side retention cap.
+- Restart recovery only requeues unfinished jobs; it does not change role or tenant identity.
 
-## Planner / Critic Failure
+## MCP Security
 
-**繁體中文**  
-Planner 或 Critic 回傳無法解析的 JSON 時，不會放寬 Tool Policy。Planner 失敗會降級成 tenant-scoped search；Critic 失敗則跳過該 Critic Step。
+MCP tools/list only exposes tools permitted to the authenticated principal.  
+MCP tools/call reuses execute_tool, therefore Tenant/RBAC/Approval remain enforced.
 
-**English**  
-Invalid planner or critic JSON never relaxes tool policy. Planner failure degrades to tenant-scoped search, while critic failure skips only the failed critic step.
+Unsupported unrestricted capabilities remain absent:
+- shell
+- raw SQL
+- arbitrary HTTP
+- eval/exec
+- secret read
+- cloud admin
 
-## Prompt Injection
+## Budget / Rate
 
-Prompt Injection 檢查仍會在 Standard RAG 與 Agentic RAG Endpoint 前執行。  
-Prompt-injection screening remains active before both Standard RAG and Agentic RAG endpoints.
+Token budget is always enforceable. Cost budget requires configured model rates.  
+Rate limit scope is tenant_id + subject.
 
-**繁體中文**  
-此 Heuristic 不是完整防護。正式環境仍應加入 Tool Input Validation、Content Sanitization、Model Guardrails、Adversarial Evaluation、Egress Control 與 Least-Privilege Tool Credential。
+Redis failure is fail-open in this reference demo; production should also enforce gateway/WAF rate limiting.
 
-**English**  
-The heuristic is not a complete defense. Production environments should add tool-input validation, content sanitization, model guardrails, adversarial evaluation, egress controls, and least-privilege tool credentials.
+## Adversarial Evaluation
 
-## Production Requirements
+Prompt-injection heuristics and unknown-tool filtering are regression-tested in CI.
 
-- Enterprise SSO / Conditional Access
-- Rate Limiting / WAF
-- DLP / Malware Scan
-- Managed KMS
-- Data Retention / Deletion Workflow
-- Model Allowlist
-- Egress Proxy / Private Endpoint
-- Signed Images / SBOM Attestation
-- SIEM Integration
-- Dedicated Agent Approval Audit
-- Tool-level Rate Limit / Budget
+## Remaining Production Controls
+
+- DLP / Malware scanning
+- SIEM integration
+- signed images / SBOM attestation
+- dedicated approval audit
+- per-tool quota
+- distributed rate limiting at gateway
+- full red-team program

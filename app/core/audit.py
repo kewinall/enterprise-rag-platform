@@ -50,6 +50,26 @@ class AuditStore:
             await self.pool.close()
             self.pool = None
 
+    async def recent_events(
+        self,
+        tenant_id: str,
+        limit: int = 10,
+    ) -> list[dict]:
+        if self.pool is None:
+            return []
+        rows = await self.pool.fetch(
+            """
+            SELECT event_time, request_id, method, path, status_code, duration_ms, metadata
+            FROM rag_audit_event
+            WHERE metadata->>'tenant_id' = $1
+            ORDER BY id DESC
+            LIMIT $2
+            """,
+            tenant_id,
+            max(1, min(50, limit)),
+        )
+        return [dict(row) for row in rows]
+
     async def record_request(
         self,
         request_id: str,

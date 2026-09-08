@@ -1,77 +1,66 @@
 # 版本異動紀錄 / Changelog
 
-## 0.5.0 - 2026-09-09
+## 0.6.0 - 2026-09-09
 
 ### 新增 / Added
 
-- Agentic RAG Orchestrator
-- Query Planning and Query Rewrite
-- Multi-hop Retrieval
-- Context Sufficiency Critic
-- Corrective Retrieval
-- Answer Critic and Optional Revision
-- Tool Calling Registry
-- Viewer/Admin Tool Permission Policy
-- Human Approval Gate for destructive tools
-- Redis-backed Approval Requests with TTL
-- Approval Approve / Reject APIs
-- Agent Execution Trace
-- Agent Evaluation Metrics and CLI
-- Standard RAG / Agentic RAG Web UI Switch
-- Agentic RAG bilingual documentation
+- PostgreSQL Durable Agent Session
+- Agent Checkpoint Store
+- Durable Async Job Queue with restart recovery
+- Explicit Agent Memory with retention / expiry policy
+- get_platform_status read-only tool
+- get_recent_audit_events read-only tool
+- MCP-compatible JSON-RPC Tool Adapter
+- 2026-07-28 server/discover subset
+- 2025-11-25 initialize subset
+- Agent token budget
+- Estimated cost budget
+- Redis tenant+subject rate limit
+- Prometheus Agent metrics
+- Grafana Agent Dashboard JSON
+- Expanded adversarial prompt/tool injection evaluation
+- v0.6 Web UI Session / Memory / Async Job controls
 
 ### 安全 / Security
 
-- Unknown planner tools are filtered out.
-- Tenant and RBAC are re-validated server-side for every tool.
-- delete_document requires Admin role and explicit human approval.
-- Approval requests are tenant-scoped and single-consumption.
-- Planner/Critic invalid JSON degrades safely instead of enabling unrestricted execution.
-- No shell, arbitrary HTTP, SQL, or unrestricted code-execution tool is exposed.
+- Memory is explicit opt-in and expires by policy.
+- MCP uses the same Tool Registry / Tenant / RBAC / Approval controls.
+- Destructive tools remain approval-gated.
+- Token/cost budgets stop excessive LLM usage.
+- Rate limits apply to sync and async Agent entry points.
+- Adversarial tests verify prompt and unknown-tool injection defenses.
 
 ### 變更 / Changed
 
-- Application Version advanced to 0.5.0.
-- Helm Chart and default offline application image advanced to 0.5.0.
-- Web UI can display Agent Plan, Critic, Tool Trace, Approval and Reject actions.
-- Agent Runtime Configuration added to .env.example and Helm values.
+- Application / Helm / Offline image advanced to 0.6.0.
+- Agent responses include budget usage and optional checkpoint_id.
+- Readiness includes agent_state.
+
+## 0.5.0 - 2026-09-09
+
+- Agentic RAG Orchestrator
+- Query Planning / Rewrite
+- Multi-hop and Corrective Retrieval
+- Context / Answer Critic
+- Tool Calling / Permission Policy
+- Human Approval Gate
+- Agent Evaluation / Trace
 
 ## 0.4.0 - 2026-09-08
 
-- OIDC JWT Validation
-- Viewer / Editor / Admin RBAC
-- Multi-tenant Server-side Isolation
-- Tenant-scoped Qdrant / Cache
-- MinIO / S3 Object Storage
-- Presigned Document Download
-- Keycloak Demo Realm
+- OIDC / RBAC / Multi-tenancy
+- MinIO / S3
 - Kubernetes / Helm
-- External Secrets Example
 - Offline Bundle
-- Deployment-file CI Validation
 
 ## 0.3.0 - 2026-09-08
 
-- RAGAS-style Answer Evaluation
-- OpenTelemetry
-- PostgreSQL Audit
-- Redis Cache
-- LiteLLM Gateway
-- Web UI
+- Evaluation / OpenTelemetry / Audit / Cache / LiteLLM / Web UI
 
 ## 0.2.0 - 2026-09-08
 
-- Page / Section Metadata
-- Batch Ingestion
-- Document Lifecycle
-- Vector / Hybrid Retrieval
-- Retrieval Benchmark
+- Document Lifecycle / Hybrid Retrieval / Benchmark
 
 ## 0.1.0 - 2026-09-08
 
-- Initial FastAPI RAG Platform
-- Qdrant Vector Retrieval
-- BM25 + Reciprocal Rank Fusion
-- Optional CrossEncoder Reranking
-- Local Ollama Example
-- CI / pip-audit / Trivy
+- Initial FastAPI / Qdrant RAG Platform

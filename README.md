@@ -1,122 +1,115 @@
 # Enterprise RAG Platform
 
-**目前版本 / Current release: v0.5.0**
+**目前版本 / Current release: v0.6.0**
 
-> **繁體中文**：Enterprise RAG Platform 是一個以企業落地為目標的 RAG / Agentic AI Reference Project。v0.5 在 v0.4 的 OIDC/RBAC、Multi-tenancy、Object Storage、Audit、Cache、Observability、Kubernetes 與 Offline Delivery 基礎上，加入 Query Planning、Query Rewrite、Multi-hop Retrieval、Corrective Retrieval、Tool Calling、Context/Answer Critic、Human Approval Gate 與 Agent Evaluation。
+> **繁體中文**：Enterprise RAG Platform 是一個 Enterprise RAG / Agentic AI Reference Platform。v0.6 在 v0.5 Agentic RAG 基礎上加入 Durable Session/Checkpoint、Async Jobs、受治理 Memory、Data Platform Read-only Tools、MCP-compatible Tool Adapter、Token/Cost Budget、Rate Limit 與 Agent Observability Dashboard。
 >
-> **English**: Enterprise RAG Platform is a production-oriented RAG / Agentic AI reference project. v0.5 extends the v0.4 identity, multi-tenancy, object storage, audit, cache, observability, Kubernetes, and offline-delivery foundation with query planning, query rewrite, multi-hop retrieval, corrective retrieval, tool calling, context/answer critics, human approval gates, and agent evaluation.
+> **English**: Enterprise RAG Platform is an enterprise RAG / Agentic AI reference platform. v0.6 adds durable sessions/checkpoints, async jobs, governed memory, read-only data-platform tools, an MCP-compatible tool adapter, token/cost budgets, rate limiting, and an agent observability dashboard.
 
-> **繁體中文**：本 Repository 僅使用 synthetic sample，不包含客戶、公司、真實 Credential 或內部環境資料。
->
-> **English**: This repository uses synthetic samples only and contains no customer, company, real credential, or internal-environment data.
+## v0.6 Highlights
 
-## v0.5 重點 / v0.5 Highlights
+- PostgreSQL Agent Session / Checkpoint
+- Durable Async Job Queue with restart recovery
+- Explicit Memory with retention / expiration
+- Read-only Data Platform Tools
+- MCP-compatible Tool Adapter
+- Modern 2026-07-28 discovery + legacy 2025-11-25 initialize subset
+- Agent Token / Estimated Cost Budget
+- Redis Tenant+Subject Rate Limit
+- Prometheus Agent Metrics
+- Grafana Dashboard JSON
+- Expanded Prompt / Tool Injection Evaluation
+- Web UI for Session / Memory / Async Job
 
-- Agentic RAG Orchestrator
-- Query Planning / Rewrite
-- Multi-hop Retrieval
-- Corrective Retrieval
-- Context Sufficiency Critic
-- Answer Critic + Optional Revision
-- Tool Calling
-- Tool Permission Policy
-- Human Approval Gate for destructive tools
-- Redis-backed Approval TTL
-- Agent Trace
-- Agent Evaluation
-- Standard RAG / Agentic RAG Web UI switch
-- Helm / Offline bundle version advanced to 0.5.0
+## Architecture
 
-詳見 / See: docs/v0.5.md, docs/agentic-rag.md, docs/tool-policy.md.
+    User / MCP Client
+           |
+           v
+      OIDC / RBAC
+           |
+           v
+        FastAPI
+           |
+     Rate Limit / Budget
+           |
+     +-----+----------------------+
+     |                            |
+     v                            v
+ Durable Session             MCP Tool Adapter
+ / Memory / Job                   |
+     |                            v
+     +------> Agent Runtime <--- Tool Registry
+                |
+          Planner / Tools
+          Retrieval / Critic
+                |
+                v
+          Answer + Checkpoint
+                |
+        +-------+--------+
+        |                |
+        v                v
+   PostgreSQL         Prometheus
+   Durable State      / Grafana
 
-## Agentic RAG Flow / Agentic RAG 流程
+## New APIs
 
-    User Question
-         |
-         v
-    Query Planner
-         |
-         +--> Rewrite
-         +--> Tool Calls
-         +--> Subqueries
-         |
-         v
-    Permission Policy
-         |
-         +--> Read-only Tool --------+
-         |                           |
-         +--> Destructive Tool       |
-                 |                   |
-                 v                   |
-          Human Approval Gate        |
-                 |                   |
-                 +-------------------+
-                         |
-                         v
-                 Multi-hop Retrieval
-                         |
-                         v
-                   Context Critic
-                    /          \
-             sufficient      insufficient
-                 |               |
-                 |               v
-                 |       Corrective Retrieval
-                 |               |
-                 +-------+-------+
-                         |
-                         v
-                    Generation
-                         |
-                         v
-                    Answer Critic
-                    /          \
-                  pass        revise
-                    |           |
-                    +-----+-----+
-                          |
-                          v
-                 Answer + Citations
-                 + Agent Trace
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | /api/v1/agent/sessions | Create durable session |
+| GET | /api/v1/agent/sessions/{id} | Session + latest checkpoint |
+| GET/PUT | /api/v1/agent/sessions/{id}/memory | Governed memory |
+| DELETE | /api/v1/agent/sessions/{id}/memory/{key} | Delete memory |
+| POST | /api/v1/agent/jobs | Submit durable async job |
+| GET | /api/v1/agent/jobs/{id} | Job status/result |
+| GET | /api/v1/agent/evaluate/adversarial | Adversarial evaluation |
+| POST | /mcp | MCP-compatible JSON-RPC tool adapter |
+
+Existing RAG / Agent / Document APIs remain available.
+
+## Governance Defaults
+
+    AGENT_STATE_ENABLED=true
+    AGENT_ASYNC_JOBS_ENABLED=true
+    AGENT_MEMORY_DEFAULT_RETENTION_DAYS=7
+    AGENT_MEMORY_MAX_RETENTION_DAYS=30
+    AGENT_RATE_LIMIT_PER_MINUTE=30
+    AGENT_BUDGET_MAX_TOKENS=12000
+    AGENT_BUDGET_MAX_COST_USD=0.25
 
 ## Tool Policy
 
 | Tool | Role | Approval |
-|---|---|---|
+|---|---|---:|
 | search_knowledge | viewer | No |
 | list_documents | viewer | No |
 | get_document_metadata | viewer | No |
+| get_platform_status | viewer | No |
+| get_recent_audit_events | viewer | No |
 | delete_document | admin | **Required** |
 
-**繁體中文**：模型只能提出 Tool Call；真正執行仍受 Server-side Role、Tenant 與 Approval Policy 控制。  
-**English**: The model may propose tool calls, but execution remains controlled by server-side role, tenant, and approval policies.
+No arbitrary shell, raw SQL, generic HTTP, eval/exec, cloud-admin or secret-read tool is exposed.
 
-## Human Approval
+## Evaluation
 
-Agent 若提出 delete_document：
+    make benchmark
+    make evaluate-answers
+    make evaluate-agent
+    make evaluate-adversarial
 
-    Agent
-      |
-      v
-    Approval Request
-      |
-      v
-    Redis TTL
-      |
-      +--> Reject
-      |
-      +--> Admin Approve
-              |
-              v
-       Re-check Tenant/Role
-              |
-              v
-          Execute Tool
+## Observability
 
-## 快速開始 / Quick start
+Prometheus:
 
-    git clone https://github.com/kewinall/enterprise-rag-platform.git
-    cd enterprise-rag-platform
+    http://localhost:8000/metrics
+
+Grafana dashboard:
+
+    observability/grafana-agent-dashboard.json
+
+## Quick Start
+
     cp .env.example .env
     docker compose up -d --build
     docker compose exec ollama ollama pull llama3.2:3b
@@ -125,90 +118,22 @@ Web UI:
 
     http://localhost:8000/
 
-Web UI 可切換 / supports:
+## Documentation
 
-- Standard RAG
-- Agentic RAG
-- Agent Trace
-- Human Approval / Reject
-
-## Agent Configuration
-
-    AGENT_ENABLED=true
-    AGENT_MAX_STEPS=10
-    AGENT_MAX_SUBQUERIES=3
-    AGENT_MAX_TOOL_CALLS=6
-    AGENT_APPROVAL_TTL_SECONDS=600
-    AGENT_ENABLE_ANSWER_REVISION=true
-
-## Agent API
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| GET | /api/v1/agent/tools | Tool policy / permission view |
-| POST | /api/v1/agent/query | Agentic RAG query |
-| GET | /api/v1/agent/approvals/{action_id} | Pending approval |
-| POST | /api/v1/agent/approvals/{action_id}/approve | Approve and execute |
-| POST | /api/v1/agent/approvals/{action_id}/reject | Reject action |
-| POST | /api/v1/agent/evaluate | Evaluate an agent result |
-
-Existing RAG / Document APIs remain available.
-
-## Evaluation
-
-Retrieval:
-
-    make benchmark
-
-RAG Answer:
-
-    make evaluate-answers
-
-Agent:
-
-    make evaluate-agent
-
-Agent evaluation includes:
-
-- Expected Tool Recall
-- Approval Safety
-- Groundedness
-- Relevance
-- Expected Status Match
-
-## Enterprise Controls retained from v0.4
-
-- OIDC / JWT Validation
-- Viewer / Editor / Admin RBAC
-- Server-enforced Multi-tenancy
-- MinIO / S3
-- PostgreSQL Audit
-- Redis Cache + Tenant Revision
-- OpenTelemetry
-- LiteLLM
-- Kubernetes / Helm
-- NetworkPolicy / HPA / PDB
-- External Secrets Example
-- Air-Gapped Bundle
-- pip-audit / Trivy / CI
-
-## 文件 / Documentation
-
-- docs/agentic-rag.md — Agentic RAG
-- docs/tool-policy.md — Tool Permission / Approval Policy
-- docs/v0.5.md — v0.5 Feature Guide
-- docs/architecture.md — Architecture
-- docs/evaluation.md — Evaluation
-- docs/security.md — Security
-- docs/troubleshooting.md — Troubleshooting
-- docs/installation.md — Installation
-- docs/auth-tenancy.md — OIDC / RBAC / Multi-tenancy
-- docs/object-storage.md — MinIO / S3
-- docs/kubernetes.md — Kubernetes / Helm
-- docs/offline-deployment.md — Air-Gapped Deployment
-- docs/observability.md — OpenTelemetry
-- docs/roadmap.md — Roadmap
-- CHANGELOG.md — Changelog
+- docs/v0.6.md
+- docs/agent-sessions.md
+- docs/mcp-adapter.md
+- docs/agent-governance.md
+- docs/agentic-rag.md
+- docs/tool-policy.md
+- docs/architecture.md
+- docs/security.md
+- docs/evaluation.md
+- docs/observability.md
+- docs/troubleshooting.md
+- docs/installation.md
+- docs/roadmap.md
+- CHANGELOG.md
 
 ## License
 

@@ -2,6 +2,7 @@ from collections.abc import Sequence
 
 import httpx
 
+from app.core.budget import estimate_tokens, get_current_budget_tracker
 from app.core.config import get_settings
 from app.core.telemetry import get_tracer
 
@@ -24,10 +25,19 @@ async def chat_completion(
         settings.llm_temperature if temperature is None else temperature
     )
 
+    message_list = list(messages)
+    tracker = get_current_budget_tracker()
+    estimated_prompt_tokens = sum(
+        estimate_tokens(str(message.get("content", "")))
+        for message in message_list
+    )
+    if tracker is not None:
+        tracker.preflight(estimated_prompt_tokens)
+
     payload = {
         "model": resolved_model,
         "temperature": resolved_temperature,
-        "messages": list(messages),
+        "messages": message_list,
     }
     headers = {"Authorization": f"Bearer {resolved_api_key}"}
 
@@ -42,7 +52,18 @@ async def chat_completion(
             )
             span.set_attribute("http.response.status_code", response.status_code)
             response.raise_for_status()
-            return response.json()["choices"][0]["message"]["content"]
+            body = response.json()
+            content = body["choices"][0]["message"]["content"]
+
+    if tracker is not None:
+        usage = body.get("usage") or {}
+        prompt_tokens = int(usage.get("prompt_tokens") or estimated_prompt_tokens)
+        completion_tokens = int(
+            usage.get("completion_tokens") or estimate_tokens(content)
+        )
+        tracker.record(prompt_tokens, completion_tokens)
+
+    return content
 
 
 async def generate_answer(question: str, context: str) -> str:

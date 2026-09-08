@@ -23,6 +23,8 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check app tests scripts
       - run: pytest -q
+      - name: Run adversarial regression suite
+        run: python scripts/evaluate_adversarial.py >/tmp/adversarial.json
       - name: Validate Docker Compose
         run: |
           cp .env.example .env
@@ -31,7 +33,9 @@ jobs:
         run: |
           helm lint charts/enterprise-rag
           helm template ci charts/enterprise-rag >/tmp/enterprise-rag-rendered.yaml
-      - name: Validate Keycloak realm JSON
-        run: python -m json.tool keycloak/realm-export.json >/dev/null
+      - name: Validate JSON artifacts
+        run: |
+          python -m json.tool keycloak/realm-export.json >/dev/null
+          python -m json.tool observability/grafana-agent-dashboard.json >/dev/null
       - name: Validate offline shell scripts
         run: bash -n scripts/offline/*.sh
