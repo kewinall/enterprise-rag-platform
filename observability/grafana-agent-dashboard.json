@@ -1,0 +1,75 @@
+{
+  "title": "Enterprise RAG - Agent Platform",
+  "uid": "enterprise-rag-agent",
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {"list": []},
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Agent Runs",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 5},
+      "targets": [
+        {"expr": "sum(increase(enterprise_rag_agent_runs_total[$__range]))", "refId": "A"}
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Rate Limited",
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 5},
+      "targets": [
+        {"expr": "sum(increase(enterprise_rag_agent_rate_limited_total[$__range]))", "refId": "A"}
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Budget Exceeded",
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 5},
+      "targets": [
+        {"expr": "sum(increase(enterprise_rag_agent_budget_exceeded_total[$__range]))", "refId": "A"}
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Estimated LLM Cost (USD)",
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 5},
+      "targets": [
+        {"expr": "sum(increase(enterprise_rag_agent_estimated_cost_usd_total[$__range]))", "refId": "A"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Agent Run Rate by Status",
+      "gridPos": {"x": 0, "y": 5, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "sum by (status) (rate(enterprise_rag_agent_runs_total[5m]))", "legendFormat": "{{status}}", "refId": "A"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tool Calls",
+      "gridPos": {"x": 12, "y": 5, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "sum by (tool, status) (rate(enterprise_rag_agent_tool_calls_total[5m]))", "legendFormat": "{{tool}} / {{status}}", "refId": "A"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Agent Latency P95",
+      "gridPos": {"x": 0, "y": 13, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(enterprise_rag_agent_run_duration_seconds_bucket[5m])))", "legendFormat": "p95", "refId": "A"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "LLM Tokens",
+      "gridPos": {"x": 12, "y": 13, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "sum by (direction) (rate(enterprise_rag_agent_llm_tokens_total[5m]))", "legendFormat": "{{direction}}", "refId": "A"}
+      ]
+    }
+  ]
+}
