@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "Enterprise RAG Platform"
+    app_version: str = "0.2.0"
     app_env: str = "dev"
     log_level: str = "INFO"
     rag_api_key: str = "change-me"
@@ -26,6 +27,7 @@ class Settings(BaseSettings):
     lexical_top_k: int = 10
     final_top_k: int = 5
     max_upload_mb: int = 20
+    max_batch_files: int = 20
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 
