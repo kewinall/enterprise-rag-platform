@@ -120,7 +120,7 @@ async def run_agent(
 
         try:
             plan = await plan_query(question)
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             plan = AgentPlan(
                 intent="knowledge_query",
                 rewritten_query=question,
