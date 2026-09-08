@@ -14,6 +14,7 @@ from app.api.routes import router
 from app.core.audit import get_audit_store
 from app.core.cache import get_cache_store
 from app.core.config import get_settings
+from app.core.object_store import get_object_store
 from app.core.telemetry import get_tracer, setup_telemetry
 from app.retrieval.store import get_vector_store
 
@@ -29,8 +30,10 @@ WEB_INDEX = Path(__file__).resolve().parent / "web" / "index.html"
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     cache = get_cache_store()
     audit = get_audit_store()
+    object_store = get_object_store()
     await cache.start()
     await audit.start()
+    await object_store.start()
     yield
     await cache.close()
     await audit.close()
@@ -59,13 +62,24 @@ async def request_observability(request: Request, call_next):
     duration_ms = (perf_counter() - started) * 1000
     response.headers["X-Request-ID"] = request_id
 
+    principal = getattr(request.state, "principal", None)
+    metadata = {"user_agent_present": bool(request.headers.get("user-agent"))}
+    if principal is not None:
+        metadata.update(
+            {
+                "subject": principal.subject,
+                "tenant_id": principal.tenant_id,
+                "auth_mode": principal.auth_mode,
+            }
+        )
+
     await get_audit_store().record_request(
         request_id=request_id,
         method=request.method,
         path=request.url.path,
         status_code=response.status_code,
         duration_ms=duration_ms,
-        metadata={"user_agent_present": bool(request.headers.get("user-agent"))},
+        metadata=metadata,
     )
     return response
 
@@ -85,6 +99,11 @@ async def ready() -> dict:
     dependencies = {
         "redis": "ready" if get_cache_store().client is not None else "degraded",
         "postgres": "ready" if get_audit_store().pool is not None else "degraded",
+        "object_store": (
+            "ready"
+            if get_object_store().available
+            else ("disabled" if not settings.object_store_enabled else "degraded")
+        ),
     }
     try:
         get_vector_store().client.get_collections()
@@ -92,6 +111,7 @@ async def ready() -> dict:
         return {
             "status": "ready",
             "version": settings.app_version,
+            "auth_mode": settings.auth_mode,
             "dependencies": dependencies,
         }
     except (httpx.HTTPError, ConnectionError, TimeoutError) as exc:
@@ -99,5 +119,6 @@ async def ready() -> dict:
         return {
             "status": "not-ready",
             "detail": str(exc),
+            "auth_mode": settings.auth_mode,
             "dependencies": dependencies,
         }
