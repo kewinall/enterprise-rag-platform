@@ -1,0 +1,3 @@
+{"question":"What should happen before a production release?","reference":"A production change should be validated in non-production, reviewed, tested, and released with a documented rollback plan."}
+{"question":"How should administrative access be granted?","reference":"Administrative access should use least privilege, individual identities, and auditable privileged actions."}
+{"question":"When is a backup considered reliable?","reference":"A backup is considered reliable only after a restore test succeeds."}
