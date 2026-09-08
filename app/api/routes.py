@@ -4,7 +4,21 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from app.api.schemas import AnswerEvaluationRequest, QueryRequest, SearchRequest
+from app.agent.approval import (
+    consume_approval_request,
+    get_approval_request,
+    reject_approval_request,
+    validate_approval_request,
+)
+from app.agent.orchestrator import run_agent
+from app.agent.tools import execute_tool, list_tool_policies
+from app.api.schemas import (
+    AgentEvaluationRequest,
+    AgentQueryRequest,
+    AnswerEvaluationRequest,
+    QueryRequest,
+    SearchRequest,
+)
 from app.core.cache import get_cache_store
 from app.core.config import get_settings
 from app.core.object_store import get_object_store
@@ -17,6 +31,7 @@ from app.core.security import (
     looks_like_prompt_injection,
     require_role,
 )
+from app.evaluation.agent_eval import evaluate_agent_result
 from app.evaluation.answer_eval import evaluate_answer
 from app.ingestion.chunking import create_document_id, split_sections
 from app.ingestion.parsers import parse_file
@@ -241,3 +256,95 @@ async def evaluate(request: AnswerEvaluationRequest, principal: PrincipalDep) ->
         reference=request.reference,
     )
     return {"tenant_id": principal.tenant_id, **result}
+
+
+@router.get("/agent/tools")
+async def agent_tools(principal: PrincipalDep) -> dict:
+    require_role(principal, ROLE_VIEWER)
+    tools = []
+    for policy in list_tool_policies():
+        tools.append(
+            {
+                **policy,
+                "allowed": principal.has_role(policy["required_role"]),
+            }
+        )
+    return {"tenant_id": principal.tenant_id, "tools": tools}
+
+
+@router.post("/agent/query")
+async def agent_query(request: AgentQueryRequest, principal: PrincipalDep) -> dict:
+    require_role(principal, ROLE_VIEWER)
+    if looks_like_prompt_injection(request.question):
+        raise HTTPException(status_code=400, detail="Potential prompt injection detected")
+    try:
+        return await run_agent(
+            request.question,
+            principal,
+            top_k=request.top_k,
+            mode=request.mode,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.get("/agent/approvals/{action_id}")
+async def agent_approval(action_id: str, principal: PrincipalDep) -> dict:
+    payload = await get_approval_request(action_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Approval request not found or expired")
+    try:
+        validate_approval_request(payload, principal)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return payload
+
+
+@router.post("/agent/approvals/{action_id}/approve")
+async def approve_agent_action(action_id: str, principal: PrincipalDep) -> dict:
+    try:
+        payload = await consume_approval_request(action_id, principal)
+        result = await execute_tool(
+            principal,
+            str(payload["tool_name"]),
+            dict(payload.get("arguments") or {}),
+            approved=True,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (RuntimeError, ValueError, KeyError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {
+        "status": "approved_and_executed",
+        "action_id": action_id,
+        "approved_by": principal.subject,
+        "result": result,
+    }
+
+
+@router.post("/agent/approvals/{action_id}/reject")
+async def reject_agent_action(action_id: str, principal: PrincipalDep) -> dict:
+    try:
+        return await reject_approval_request(action_id, principal)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/agent/evaluate")
+async def evaluate_agent(
+    request: AgentEvaluationRequest,
+    principal: PrincipalDep,
+) -> dict:
+    require_role(principal, ROLE_VIEWER)
+    evaluation = evaluate_agent_result(
+        request.result,
+        expected_tools=request.expected_tools,
+        expected_status=request.expected_status,
+    )
+    return {"tenant_id": principal.tenant_id, **evaluation}
