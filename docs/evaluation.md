@@ -3,7 +3,7 @@
 ## Retrieval Evaluation
 
 **繁體中文**  
-Retrieval Quality 應在調整 Chunking、Embedding、Top-K、Reranker 前先量測，避免只看主觀回答。
+Retrieval Quality 應在調整 Chunking、Embedding、Top-K、Reranker 前先量測。
 
 **English**  
 Retrieval quality should be measured before changing chunking, embeddings, top-k, or rerankers.
@@ -13,49 +13,72 @@ Metrics:
 - MRR
 - Average Retrieval Latency
 
-執行 / Run:
+Run:
 
     make benchmark
 
-## RAGAS-style Answer Evaluation
-
-**繁體中文**  
-v0.3 新增 LLM-as-a-Judge Evaluator。此實作採用 RAGAS 常見概念，但不硬依賴 Ragas Python Package，降低 Framework API 版本變動與額外 Dependency 對主 Runtime 的影響。
-
-**English**  
-v0.3 adds an LLM-as-a-Judge evaluator using common RAGAS-style concepts without hard-depending on the Ragas Python package, reducing framework API churn and runtime dependency surface.
+## RAG Answer Evaluation
 
 Metrics:
 
-- **Faithfulness** — Answer Claims 是否由 Retrieved Context 支持 / whether answer claims are supported by retrieved context.
-- **Answer Relevance** — Answer 是否回應原 Question / whether the answer addresses the question.
-- **Context Relevance** — Retrieved Context 是否與 Question 相關 / whether contexts are relevant.
-- **Answer Correctness** — 有 Reference 時比較 Answer / compares against a reference when provided.
+- Faithfulness
+- Answer Relevance
+- Context Relevance
+- Answer Correctness
 
-API:
-
-    POST /api/v1/evaluate/answer
-
-CLI:
+Run:
 
     make evaluate-answers
 
-## Evaluator Model
+## Agent Evaluation
 
 **繁體中文**  
-預設 Evaluator 使用與 RAG Generation 相同的 LLM Gateway / Model。可透過 EVALUATOR_LLM_BASE_URL、EVALUATOR_LLM_API_KEY、EVALUATOR_LLM_MODEL 指定獨立 Judge Model。
+v0.5 新增 Agent Evaluation。它不是只看最終 Answer，而是同時檢查 Agent 是否選到預期 Tool、是否遵守 Human Approval Policy，以及 Answer Critic 的 Groundedness / Relevance。
 
 **English**  
-By default, evaluation uses the same gateway/model as generation. EVALUATOR_LLM_BASE_URL, EVALUATOR_LLM_API_KEY, and EVALUATOR_LLM_MODEL can point to a separate judge model.
+v0.5 adds agent evaluation. It evaluates not only the final answer, but also expected tool selection, human-approval policy compliance, and groundedness/relevance from the answer critic.
+
+Metrics:
+
+- Expected Tool Recall
+- Approval Safety
+- Groundedness
+- Relevance
+- Expected Status Match
+- Overall Score
+
+Run:
+
+    make evaluate-agent
+
+Dataset:
+
+    data/eval/agent_eval.jsonl
+
+API:
+
+    POST /api/v1/agent/evaluate
+
+## Approval Safety Metric
+
+**繁體中文**  
+若 Agent Trace 中出現 requires_approval Tool 被直接標記為 completed，而沒有 Approval Gate，Approval Safety 會降為 0。
+
+**English**  
+If a tool that requires approval appears as directly completed in an agent trace without the approval gate, the Approval Safety score becomes 0.
 
 ## Production Evaluation / 正式環境建議
 
-後續可加入 / Recommended additions:
+後續可增加 / Recommended additions:
 
-- Context Precision / Recall
-- NDCG
-- Citation Correctness
-- Latency P50 / P95 / P99
-- Token Usage / Cost
-- Task Success Rate
-- Human Review Sample
+- Planner Intent Accuracy
+- Query Rewrite Quality
+- Tool Precision
+- Tool Argument Accuracy
+- Multi-hop Task Success
+- Corrective Retrieval Success Rate
+- Human Approval Rate
+- Refusal Correctness
+- Prompt Injection / Tool Injection Adversarial Cases
+- Cost per Agent Run
+- P50 / P95 / P99 Agent Latency
