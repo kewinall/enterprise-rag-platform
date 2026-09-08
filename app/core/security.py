@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import jwt
 from fastapi import Header, HTTPException, Request, status
 from jwt import PyJWKClient
-from jwt.exceptions import InvalidTokenError
+from jwt.exceptions import InvalidTokenError, PyJWKClientError
 
 from app.core.config import get_settings
 
@@ -56,7 +56,7 @@ async def _decode_oidc_token(token: str) -> dict:
             audience=settings.oidc_audience,
             issuer=settings.oidc_issuer,
         )
-    except (InvalidTokenError, jwt.PyJWKClientError) as exc:
+    except (InvalidTokenError, PyJWKClientError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid OIDC token",
