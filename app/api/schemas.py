@@ -19,6 +19,7 @@ class QueryRequest(BaseModel):
     top_k: int | None = Field(default=None, ge=1, le=20)
     mode: Literal["vector", "hybrid"] = "hybrid"
     filters: RetrievalFilter | None = None
+    use_cache: bool = True
 
 
 class SearchRequest(BaseModel):
@@ -26,3 +27,10 @@ class SearchRequest(BaseModel):
     top_k: int = Field(default=5, ge=1, le=20)
     mode: Literal["vector", "hybrid"] = "hybrid"
     filters: RetrievalFilter | None = None
+
+
+class AnswerEvaluationRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=4000)
+    answer: str = Field(min_length=1, max_length=12000)
+    contexts: list[str] = Field(min_length=1, max_length=20)
+    reference: str | None = Field(default=None, max_length=12000)
