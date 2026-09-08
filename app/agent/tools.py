@@ -1,13 +1,10 @@
 from dataclasses import dataclass
 from typing import Any
 
+from app.core.audit import get_audit_store
 from app.core.cache import get_cache_store
 from app.core.object_store import get_object_store
-from app.core.security import (
-    ROLE_ADMIN,
-    ROLE_VIEWER,
-    Principal,
-)
+from app.core.security import ROLE_ADMIN, ROLE_VIEWER, Principal
 from app.retrieval.hybrid import hybrid_search
 from app.retrieval.store import get_vector_store
 
@@ -30,28 +27,40 @@ class ToolPolicy:
 
 TOOL_POLICIES = {
     "search_knowledge": ToolPolicy(
-        name="search_knowledge",
-        required_role=ROLE_VIEWER,
-        requires_approval=False,
-        description="Search tenant-scoped knowledge using vector or hybrid retrieval.",
+        "search_knowledge",
+        ROLE_VIEWER,
+        False,
+        "Search tenant-scoped knowledge using vector or hybrid retrieval.",
     ),
     "list_documents": ToolPolicy(
-        name="list_documents",
-        required_role=ROLE_VIEWER,
-        requires_approval=False,
-        description="List documents visible to the current tenant.",
+        "list_documents",
+        ROLE_VIEWER,
+        False,
+        "List documents visible to the current tenant.",
     ),
     "get_document_metadata": ToolPolicy(
-        name="get_document_metadata",
-        required_role=ROLE_VIEWER,
-        requires_approval=False,
-        description="Read metadata for one tenant-scoped document.",
+        "get_document_metadata",
+        ROLE_VIEWER,
+        False,
+        "Read metadata for one tenant-scoped document.",
+    ),
+    "get_platform_status": ToolPolicy(
+        "get_platform_status",
+        ROLE_VIEWER,
+        False,
+        "Read tenant-safe data-platform inventory and index statistics.",
+    ),
+    "get_recent_audit_events": ToolPolicy(
+        "get_recent_audit_events",
+        ROLE_VIEWER,
+        False,
+        "Read recent tenant-scoped operational audit events.",
     ),
     "delete_document": ToolPolicy(
-        name="delete_document",
-        required_role=ROLE_ADMIN,
-        requires_approval=True,
-        description="Delete a tenant-scoped document and its stored object.",
+        "delete_document",
+        ROLE_ADMIN,
+        True,
+        "Delete a tenant-scoped document and its stored object.",
     ),
 }
 
@@ -104,12 +113,7 @@ async def execute_tool(
             filters={"tenant_id": principal.tenant_id},
             mode=mode,
         )
-        return {
-            "tool": tool_name,
-            "query": query,
-            "mode": mode,
-            "results": results,
-        }
+        return {"tool": tool_name, "query": query, "mode": mode, "results": results}
 
     if tool_name == "list_documents":
         documents = get_vector_store().list_document_summaries(principal.tenant_id)
@@ -128,15 +132,41 @@ async def execute_tool(
             raise LookupError("Document not found")
         return {"tool": tool_name, "document": document}
 
+    if tool_name == "get_platform_status":
+        documents = get_vector_store().list_document_summaries(principal.tenant_id)
+        return {
+            "tool": tool_name,
+            "tenant_id": principal.tenant_id,
+            "documents": len(documents),
+            "chunks": sum(int(item.get("chunks", 0)) for item in documents),
+            "content_types": sorted(
+                {str(item.get("content_type")) for item in documents if item.get("content_type")}
+            ),
+        }
+
+    if tool_name == "get_recent_audit_events":
+        limit = max(1, min(50, int(arguments.get("limit", 10))))
+        events = await get_audit_store().recent_events(principal.tenant_id, limit)
+        safe_events = [
+            {
+                "event_time": str(event["event_time"]),
+                "request_id": event["request_id"],
+                "method": event["method"],
+                "path": event["path"],
+                "status_code": event["status_code"],
+                "duration_ms": event["duration_ms"],
+            }
+            for event in events
+        ]
+        return {"tool": tool_name, "events": safe_events}
+
     if tool_name == "delete_document":
         document_id = str(arguments.get("document_id", "")).strip()
         if not document_id:
             raise ValueError("delete_document requires document_id")
-
         store = get_vector_store()
         if store.count_document(document_id, principal.tenant_id) == 0:
             raise LookupError("Document not found")
-
         object_key = store.get_document_object_key(document_id, principal.tenant_id)
         await get_object_store().delete_object(object_key)
         deleted_chunks = store.delete_document(document_id, principal.tenant_id)
