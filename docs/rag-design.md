@@ -1,21 +1,45 @@
 # RAG Design
 
-## Chunking
+## Document model
 
-The default character-based chunker is intentionally simple and deterministic. Production systems should benchmark semantic, sentence, section-aware and token-aware chunking strategies against a representative evaluation set.
+Version 0.2 assigns each ingested file a deterministic document ID and stores metadata with
+every chunk:
+
+- document ID
+- source filename
+- content type
+- ordinal
+- PDF page when available
+- Markdown section when available
+
+This metadata is returned with citations and can be used as an exact-match retrieval filter.
+
+## Parsing and chunking
+
+PDF files are parsed page by page. Markdown files are split on headings before the configured
+character chunker runs, preserving the section title on every resulting chunk. TXT and CSV
+files are represented as single parsed sections before chunking.
+
+The character-based chunker remains intentionally deterministic. Production systems should
+benchmark token-aware or semantic chunking against a representative evaluation set.
 
 ## Retrieval
 
-The MVP implements vector retrieval directly. The repository also includes BM25 and RRF utilities to make hybrid retrieval easy to extend. A production benchmark should compare:
-- vector-only
-- BM25-only
-- hybrid + RRF
-- hybrid + reranker
+Two explicit modes are available:
 
-## Generation
+1. vector — Qdrant semantic retrieval only
+2. hybrid — vector retrieval plus BM25 lexical retrieval, Reciprocal Rank Fusion, and an
+   optional CrossEncoder reranker
 
-The LLM boundary is OpenAI-compatible. This permits local Ollama/vLLM, LiteLLM gateways, managed OpenAI-compatible services and other providers without changing the API layer.
+Both modes accept the same metadata filters, making retrieval experiments directly comparable.
 
-## Citations
+## Document lifecycle
 
-Retrieved chunks are numbered before generation, and chunk/source identifiers are returned separately. A production UI should make citations clickable and preserve document/page metadata.
+Re-ingesting a file with the same deterministic document ID replaces its existing chunks.
+Version 0.2 also exposes document listing, delete, batch ingest, and explicit reindex APIs.
+
+## Generation and citations
+
+The LLM boundary is OpenAI-compatible. Retrieved chunks are numbered before generation.
+Citations return source, document ID, chunk ID, page and section metadata so a future UI can
+link the answer to the original location.
