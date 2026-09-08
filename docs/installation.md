@@ -2,69 +2,52 @@
 
 ## Docker Compose — Local Demo
 
-1. 複製設定 / Copy configuration:
+    cp .env.example .env
+    docker compose up -d --build
+    docker compose exec ollama ollama pull llama3.2:3b
 
-       cp .env.example .env
+Web UI:
 
-2. 修改 Demo Secret / Change demo secrets:
+    http://localhost:8000/
 
-       RAG_API_KEY
-       LITELLM_MASTER_KEY
-       POSTGRES_PASSWORD
-       S3_SECRET_ACCESS_KEY
+## Agentic RAG Configuration
 
-3. 啟動 / Start:
+Default:
 
-       docker compose up -d --build
+    AGENT_ENABLED=true
+    AGENT_MAX_STEPS=10
+    AGENT_MAX_SUBQUERIES=3
+    AGENT_MAX_TOOL_CALLS=6
+    AGENT_APPROVAL_TTL_SECONDS=600
+    AGENT_ENABLE_ANSWER_REVISION=true
 
-4. Pull Local Model:
+**繁體中文**  
+Agentic RAG 不需要新增 Container；它使用既有 FastAPI、Redis、Qdrant、LiteLLM/Ollama、PostgreSQL Audit 與 OpenTelemetry。
 
-       docker compose exec ollama ollama pull llama3.2:3b
+**English**  
+Agentic RAG does not require an additional container. It reuses FastAPI, Redis, Qdrant, LiteLLM/Ollama, PostgreSQL audit, and OpenTelemetry.
 
-5. Web UI:
+## Authentication
 
-       http://localhost:8000/
-
-## Default API Key Mode
+Local Demo:
 
     AUTH_MODE=api_key
-    DEFAULT_TENANT_ID=demo
 
-Request 可用 X-Tenant-ID 模擬 Tenant。  
-Requests may use X-Tenant-ID to simulate tenants.
-
-## OIDC Demo
-
-啟動 Keycloak / Start Keycloak:
+OIDC Demo:
 
     docker compose --profile oidc up -d
 
-修改 .env / Change:
+then set:
 
     AUTH_MODE=oidc
 
-OIDC:
-
-    OIDC_ISSUER=http://localhost:8080/realms/enterprise-rag
-    OIDC_AUDIENCE=enterprise-rag-api
-    OIDC_JWKS_URL=http://keycloak:8080/realms/enterprise-rag/protocol/openid-connect/certs
-
 詳見 / See: docs/auth-tenancy.md
 
-## Object Storage
+## Agent Test
 
-Default MinIO:
+先匯入 Sample Documents，再執行 / Ingest sample documents first, then run:
 
-    API:     http://localhost:9000
-    Console: http://localhost:9001
-
-設定 / Configuration:
-
-    OBJECT_STORE_ENABLED=true
-    S3_ENDPOINT_URL=http://minio:9000
-    S3_BUCKET=enterprise-rag
-
-詳見 / See: docs/object-storage.md
+    make evaluate-agent
 
 ## Native Python
 
@@ -75,17 +58,12 @@ Python 3.11+:
     pip install -e ".[dev]"
     uvicorn app.main:app --reload
 
-**繁體中文**  
-Native Mode 需自行提供 Qdrant、LLM Endpoint，以及啟用功能所需的 Redis、PostgreSQL、S3-compatible Storage、OIDC Provider 與 OTLP Endpoint。
-
-**English**  
-Native mode requires externally reachable Qdrant and LLM endpoints plus Redis, PostgreSQL, S3-compatible storage, OIDC provider, and OTLP endpoint when those features are enabled.
-
 ## Kubernetes / Helm
 
     helm upgrade --install rag ./charts/enterprise-rag
 
-詳見 / See: docs/kubernetes.md
+v0.5 Helm values 已包含 Agent Runtime Config。  
+v0.5 Helm values include agent runtime configuration.
 
 ## Offline
 
@@ -93,4 +71,6 @@ Native mode requires externally reachable Qdrant and LLM endpoints plus Redis, P
     bash scripts/offline/verify-bundle.sh ./offline-bundle
     bash scripts/offline/import-bundle.sh ./offline-bundle
 
-詳見 / See: docs/offline-deployment.md
+Default application image:
+
+    enterprise-rag-platform:0.5.0
