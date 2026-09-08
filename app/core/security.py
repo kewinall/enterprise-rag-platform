@@ -1,6 +1,7 @@
 import asyncio
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 
 import jwt
 from fastapi import Header, HTTPException, Request, status
@@ -44,9 +45,14 @@ def _nested_claim(claims: dict, path: str):
     return value
 
 
+@lru_cache
+def get_jwk_client() -> PyJWKClient:
+    return PyJWKClient(get_settings().oidc_jwks_url, cache_keys=True)
+
+
 async def _decode_oidc_token(token: str) -> dict:
     settings = get_settings()
-    jwk_client = PyJWKClient(settings.oidc_jwks_url, cache_keys=True)
+    jwk_client = get_jwk_client()
     try:
         signing_key = await asyncio.to_thread(jwk_client.get_signing_key_from_jwt, token)
         return jwt.decode(
