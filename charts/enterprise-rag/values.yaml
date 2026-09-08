@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: enterprise-rag-platform
-  tag: "0.5.0"
+  tag: "0.6.0"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -46,6 +46,16 @@ config:
   AGENT_MAX_TOOL_CALLS: "6"
   AGENT_APPROVAL_TTL_SECONDS: "600"
   AGENT_ENABLE_ANSWER_REVISION: "true"
+  AGENT_STATE_ENABLED: "true"
+  AGENT_ASYNC_JOBS_ENABLED: "true"
+  AGENT_JOB_POLL_SECONDS: "1"
+  AGENT_MEMORY_DEFAULT_RETENTION_DAYS: "7"
+  AGENT_MEMORY_MAX_RETENTION_DAYS: "30"
+  AGENT_RATE_LIMIT_PER_MINUTE: "30"
+  AGENT_BUDGET_MAX_TOKENS: "12000"
+  AGENT_BUDGET_MAX_COST_USD: "0.25"
+  AGENT_INPUT_COST_PER_1K: "0"
+  AGENT_OUTPUT_COST_PER_1K: "0"
   CACHE_ENABLED: "true"
   REDIS_URL: redis://redis.example.svc:6379/0
   AUDIT_ENABLED: "true"
