@@ -21,3 +21,6 @@ evaluate-answers:
 
 evaluate-agent:
 	python scripts/evaluate_agent.py --dataset data/eval/agent_eval.jsonl --top-k 5 --mode hybrid
+
+evaluate-adversarial:
+	python scripts/evaluate_adversarial.py
