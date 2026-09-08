@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     evaluator_llm_model: str | None = None
 
     agent_enabled: bool = True
-    agent_max_steps: int = 6
+    agent_max_steps: int = 10
     agent_max_subqueries: int = 3
     agent_max_tool_calls: int = 6
     agent_approval_ttl_seconds: int = 600
