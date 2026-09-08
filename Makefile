@@ -15,3 +15,6 @@ evaluate:
 
 benchmark:
 	python scripts/benchmark_retrieval.py --dataset data/eval/retrieval_eval.jsonl --k 5
+
+evaluate-answers:
+	python scripts/evaluate_answers.py --dataset data/eval/answer_eval.jsonl --k 5 --mode hybrid
