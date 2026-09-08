@@ -53,14 +53,28 @@ class ObjectStore:
         settings = get_settings()
         if not settings.object_store_enabled:
             return
-        try:
-            await asyncio.to_thread(self._ensure_bucket)
-        except (BotoCoreError, ClientError, OSError) as exc:
-            logger.warning("Object store unavailable: %s", exc)
-            self.available = False
+
+        last_error = None
+        for attempt in range(1, settings.object_store_startup_retries + 1):
+            try:
+                await asyncio.to_thread(self._ensure_bucket)
+            except (BotoCoreError, ClientError, OSError) as exc:
+                last_error = exc
+                logger.warning(
+                    "Object store startup attempt %s/%s failed: %s",
+                    attempt,
+                    settings.object_store_startup_retries,
+                    exc,
+                )
+                await asyncio.sleep(1)
+                continue
+
+            self.available = True
+            logger.info("Object store enabled: bucket=%s", settings.s3_bucket)
             return
-        self.available = True
-        logger.info("Object store enabled: bucket=%s", settings.s3_bucket)
+
+        self.available = False
+        logger.warning("Object store unavailable after retries: %s", last_error)
 
     def make_object_key(self, tenant_id: str, document_id: str, source: str) -> str:
         return f"{tenant_id}/{document_id}/{_safe_name(source)}"
