@@ -1,6 +1,6 @@
 # 安裝 / Installation
 
-## Docker Compose — Local Demo
+## Docker Compose
 
     cp .env.example .env
     docker compose up -d --build
@@ -10,67 +10,44 @@ Web UI:
 
     http://localhost:8000/
 
-## Agentic RAG Configuration
+## v0.6 Agent Platform Settings
 
-Default:
+    AGENT_STATE_ENABLED=true
+    AGENT_ASYNC_JOBS_ENABLED=true
+    AGENT_JOB_POLL_SECONDS=1
+    AGENT_MEMORY_DEFAULT_RETENTION_DAYS=7
+    AGENT_MEMORY_MAX_RETENTION_DAYS=30
+    AGENT_RATE_LIMIT_PER_MINUTE=30
+    AGENT_BUDGET_MAX_TOKENS=12000
+    AGENT_BUDGET_MAX_COST_USD=0.25
+    AGENT_INPUT_COST_PER_1K=0
+    AGENT_OUTPUT_COST_PER_1K=0
 
-    AGENT_ENABLED=true
-    AGENT_MAX_STEPS=10
-    AGENT_MAX_SUBQUERIES=3
-    AGENT_MAX_TOOL_CALLS=6
-    AGENT_APPROVAL_TTL_SECONDS=600
-    AGENT_ENABLE_ANSWER_REVISION=true
+No new container is required. Durable agent state reuses PostgreSQL; rate limiting reuses Redis.
 
-**繁體中文**  
-Agentic RAG 不需要新增 Container；它使用既有 FastAPI、Redis、Qdrant、LiteLLM/Ollama、PostgreSQL Audit 與 OpenTelemetry。
+## MCP
 
-**English**  
-Agentic RAG does not require an additional container. It reuses FastAPI, Redis, Qdrant, LiteLLM/Ollama, PostgreSQL audit, and OpenTelemetry.
+Endpoint:
 
-## Authentication
+    POST /mcp
 
-Local Demo:
+See docs/mcp-adapter.md.
 
-    AUTH_MODE=api_key
-
-OIDC Demo:
-
-    docker compose --profile oidc up -d
-
-then set:
-
-    AUTH_MODE=oidc
-
-詳見 / See: docs/auth-tenancy.md
-
-## Agent Test
-
-先匯入 Sample Documents，再執行 / Ingest sample documents first, then run:
+## Evaluation
 
     make evaluate-agent
+    make evaluate-adversarial
 
-## Native Python
-
-Python 3.11+:
-
-    python -m venv .venv
-    source .venv/bin/activate
-    pip install -e ".[dev]"
-    uvicorn app.main:app --reload
-
-## Kubernetes / Helm
+## Kubernetes
 
     helm upgrade --install rag ./charts/enterprise-rag
 
-v0.5 Helm values 已包含 Agent Runtime Config。  
-v0.5 Helm values include agent runtime configuration.
+Helm chart version: 0.6.0
 
 ## Offline
 
     bash scripts/offline/prepare-bundle.sh ./offline-bundle
-    bash scripts/offline/verify-bundle.sh ./offline-bundle
-    bash scripts/offline/import-bundle.sh ./offline-bundle
 
 Default application image:
 
-    enterprise-rag-platform:0.5.0
+    enterprise-rag-platform:0.6.0
