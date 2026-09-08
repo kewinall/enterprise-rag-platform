@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 
 from app.agent.mcp import mcp_tools_call, mcp_tools_list
@@ -51,18 +53,18 @@ async def create_agent_session(
 
 @v06_router.get("/agent/sessions/{session_id}")
 async def get_agent_session(
-    session_id: str,
+    session_id: UUID,
     principal: Principal = PrincipalDep,
 ) -> dict:
     require_role(principal, ROLE_VIEWER)
     session = await get_agent_state_store().get_session(
-        session_id,
+        str(session_id),
         principal.tenant_id,
     )
     if session is None:
         raise HTTPException(status_code=404, detail="Agent session not found")
     checkpoint = await get_agent_state_store().latest_checkpoint(
-        session_id,
+        str(session_id),
         principal.tenant_id,
     )
     return {"session": session, "latest_checkpoint": checkpoint}
@@ -70,12 +72,12 @@ async def get_agent_session(
 
 @v06_router.get("/agent/sessions/{session_id}/checkpoint")
 async def get_agent_checkpoint(
-    session_id: str,
+    session_id: UUID,
     principal: Principal = PrincipalDep,
 ) -> dict:
     require_role(principal, ROLE_VIEWER)
     checkpoint = await get_agent_state_store().latest_checkpoint(
-        session_id,
+        str(session_id),
         principal.tenant_id,
     )
     if checkpoint is None:
@@ -85,32 +87,32 @@ async def get_agent_checkpoint(
 
 @v06_router.get("/agent/sessions/{session_id}/memory")
 async def list_agent_memory(
-    session_id: str,
+    session_id: UUID,
     principal: Principal = PrincipalDep,
 ) -> dict:
     require_role(principal, ROLE_VIEWER)
     store = get_agent_state_store()
-    if await store.get_session(session_id, principal.tenant_id) is None:
+    if await store.get_session(str(session_id), principal.tenant_id) is None:
         raise HTTPException(status_code=404, detail="Agent session not found")
-    items = await store.list_memory(session_id, principal.tenant_id)
-    return {"session_id": session_id, "count": len(items), "items": items}
+    items = await store.list_memory(str(session_id), principal.tenant_id)
+    return {"session_id": str(session_id), "count": len(items), "items": items}
 
 
 @v06_router.put("/agent/sessions/{session_id}/memory")
 async def put_agent_memory(
-    session_id: str,
+    session_id: UUID,
     request: AgentMemoryRequest,
     principal: Principal = PrincipalDep,
 ) -> dict:
     require_role(principal, ROLE_VIEWER)
     settings = get_settings()
     store = get_agent_state_store()
-    if await store.get_session(session_id, principal.tenant_id) is None:
+    if await store.get_session(str(session_id), principal.tenant_id) is None:
         raise HTTPException(status_code=404, detail="Agent session not found")
     retention = request.retention_days or settings.agent_memory_default_retention_days
     retention = min(retention, settings.agent_memory_max_retention_days)
     return await store.upsert_memory(
-        session_id=session_id,
+        session_id=str(session_id),
         tenant_id=principal.tenant_id,
         key=request.key,
         value=request.value,
@@ -120,19 +122,19 @@ async def put_agent_memory(
 
 @v06_router.delete("/agent/sessions/{session_id}/memory/{key}")
 async def delete_agent_memory(
-    session_id: str,
+    session_id: UUID,
     key: str,
     principal: Principal = PrincipalDep,
 ) -> dict:
     require_role(principal, ROLE_VIEWER)
     deleted = await get_agent_state_store().delete_memory(
-        session_id,
+        str(session_id),
         principal.tenant_id,
         key,
     )
     if deleted == 0:
         raise HTTPException(status_code=404, detail="Memory not found")
-    return {"session_id": session_id, "key": key, "deleted": True}
+    return {"session_id": str(session_id), "key": key, "deleted": True}
 
 
 @v06_router.post("/agent/jobs")
@@ -143,12 +145,12 @@ async def create_agent_job(
     require_role(principal, ROLE_VIEWER)
     await _check_rate(principal)
     store = get_agent_state_store()
-    if request.session_id is not None:
-        session = await store.get_session(request.session_id, principal.tenant_id)
+    if str(request.session_id) if request.session_id is not None else None is not None:
+        session = await store.get_session(request.str(session_id), principal.tenant_id)
         if session is None:
             raise HTTPException(status_code=404, detail="Agent session not found")
     return await store.create_job(
-        session_id=request.session_id,
+        session_id=request.str(session_id),
         tenant_id=principal.tenant_id,
         subject=principal.subject,
         roles=sorted(principal.roles),
@@ -158,11 +160,11 @@ async def create_agent_job(
 
 @v06_router.get("/agent/jobs/{job_id}")
 async def get_agent_job(
-    job_id: str,
+    job_id: UUID,
     principal: Principal = PrincipalDep,
 ) -> dict:
     require_role(principal, ROLE_VIEWER)
-    job = await get_agent_state_store().get_job(job_id, principal.tenant_id)
+    job = await get_agent_state_store().get_job(str(job_id), principal.tenant_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Agent job not found")
     return job
