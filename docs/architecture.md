@@ -1,41 +1,69 @@
 # 架構 / Architecture
 
-## v0.3 架構概念 / v0.3 architecture concept
+## v0.4 Architecture
 
 **繁體中文**  
-平台將 Data Plane、Model Gateway、State Store 與 Observability 分離。FastAPI 負責 API 與 Orchestration；Qdrant / BM25 負責 Retrieval；LiteLLM 隔離 Model Provider；Redis 降低重複 Generation；PostgreSQL 保存 Request Audit；OpenTelemetry 將 Runtime Trace 送往 Collector。
+v0.4 將平台切分為 Identity Plane、RAG/Data Plane、State Layer、Model Gateway、Object Storage 與 Observability。Authentication Principal 會決定 Tenant Boundary 與 RBAC，所有文件與 Retrieval Operation 都必須經過 Server-side Tenant Scope。
 
 **English**  
-The platform separates the data plane, model gateway, state stores, and observability. FastAPI handles APIs and orchestration; Qdrant/BM25 handle retrieval; LiteLLM isolates model providers; Redis reduces duplicate generation; PostgreSQL stores request audit records; and OpenTelemetry exports runtime traces to a collector.
+v0.4 separates the platform into an identity plane, RAG/data plane, state layer, model gateway, object storage, and observability. The authentication principal determines tenant boundaries and RBAC, and all document/retrieval operations are server-scoped to the authenticated tenant.
 
 ## Runtime Flow / 執行流程
 
-1. Client / Web UI 呼叫 FastAPI / calls FastAPI.
-2. API Key 與 Prompt Injection Heuristic 先執行 / security checks run first.
-3. Query 先查 Redis Cache / checks Redis cache first.
-4. Cache Miss 時執行 Vector 或 Hybrid Retrieval / retrieval runs on cache miss.
-5. Context 送至 LiteLLM / context is sent to LiteLLM.
-6. LiteLLM 將 enterprise-rag Route 到 Ollama / routes enterprise-rag to Ollama.
-7. Answer + Citation 回傳 Client / returned to the client.
-8. Response 可寫入 Redis / may be cached in Redis.
-9. Request Metadata 寫入 PostgreSQL Audit / request metadata is audited to PostgreSQL.
-10. HTTP、Retrieval、LLM、Evaluation Span 送往 OTel Collector / spans are exported to the OTel Collector.
+1. Client 使用 API Key Demo 或 OIDC Bearer Token。  
+   Client authenticates using API-key demo mode or an OIDC bearer token.
+2. FastAPI 建立 Principal，包含 subject、tenant_id、roles。  
+   FastAPI builds a principal containing subject, tenant_id, and roles.
+3. RBAC 檢查 Endpoint Permission。  
+   RBAC validates endpoint permission.
+4. Tenant Scope 自動加入 Qdrant Filter / Document CRUD。  
+   Tenant scope is automatically added to Qdrant filters and document CRUD.
+5. Ingest 原始文件保存到 MinIO / S3，再建立 Chunk / Embedding。  
+   Ingest stores the original document in MinIO/S3 before chunking and embedding.
+6. Query 先檢查 Tenant-scoped Redis Cache。  
+   Query checks the tenant-scoped Redis cache first.
+7. Cache Miss 執行 Hybrid Retrieval。  
+   Hybrid retrieval runs on cache miss.
+8. Context 經 LiteLLM 呼叫 Model。  
+   Context is sent through LiteLLM to the model runtime.
+9. HTTP Metadata 寫入 PostgreSQL Audit。  
+   HTTP metadata is written to PostgreSQL audit storage.
+10. Runtime Spans 輸出至 OpenTelemetry Collector。  
+    Runtime spans are exported to the OpenTelemetry Collector.
 
-## Security / Privacy Boundary
+## Tenant Boundary
+
+Tenant Scope 會套用到 / applies to:
+
+- Document ID
+- Qdrant Payload
+- List
+- Search
+- Query
+- Delete
+- Reindex
+- Download
+- Redis Cache Key
+- Cache Revision
+
+Client 提供的 Retrieval Filter 不包含 tenant_id 欄位，因此不能覆蓋 Server Scope。  
+Client retrieval filters do not expose tenant_id, so the server scope cannot be overridden.
+
+## Production Topology
 
 **繁體中文**  
-Audit Store 預設不保存 Request Body、Prompt、Document Content，只記錄 Request ID、Method、Path、Status、Latency 與低敏 Metadata。Telemetry 也不寫入 Prompt / Context 本文。
+正式環境建議 API 使用 Helm 部署；OIDC、Qdrant、Redis、PostgreSQL、Object Storage、LiteLLM、OTel Backend 可使用 Managed Service 或 Shared Platform Service。Secret 由 Secret Manager / External Secrets 注入。
 
 **English**  
-The audit store does not persist request bodies, prompts, or document content by default. It records request ID, method, path, status, latency, and low-sensitivity metadata. Telemetry spans also avoid prompt/context bodies.
+For production, deploy the API with Helm while using managed or shared services for OIDC, Qdrant, Redis, PostgreSQL, object storage, LiteLLM, and telemetry backends. Inject secrets through a secret manager or External Secrets.
 
-## Extension Point / 擴充點
+## Deployment Controls
 
-- Cloud LLM / Local LLM Routing through LiteLLM
-- PostgreSQL HA / Managed PostgreSQL
-- Redis Cluster / Managed Redis
-- Grafana Tempo / Jaeger / vendor OTLP backend
-- OIDC / RBAC
-- MinIO / S3
-- Multi-tenant Vector Collections
-- Secret Manager / Vault
+- Non-root Runtime
+- Read-only Root Filesystem
+- Health Probes
+- HPA
+- PDB
+- NetworkPolicy
+- Existing Secret Reference
+- Offline Bundle Support
