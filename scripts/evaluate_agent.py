@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from app.agent.orchestrator import run_agent
-from app.core.security import Principal, ROLE_VIEWER
+from app.core.security import ROLE_VIEWER, Principal
 from app.evaluation.agent_eval import evaluate_agent_result
 
 
