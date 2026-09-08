@@ -1,84 +1,55 @@
 # 評測 / Evaluation
 
-## Retrieval Evaluation
-
-**繁體中文**  
-Retrieval Quality 應在調整 Chunking、Embedding、Top-K、Reranker 前先量測。
-
-**English**  
-Retrieval quality should be measured before changing chunking, embeddings, top-k, or rerankers.
-
-Metrics:
-- Recall@K
-- MRR
-- Average Retrieval Latency
-
-Run:
+## Retrieval
 
     make benchmark
 
-## RAG Answer Evaluation
+Metrics: Recall@K, MRR, latency.
 
-Metrics:
-
-- Faithfulness
-- Answer Relevance
-- Context Relevance
-- Answer Correctness
-
-Run:
+## RAG Answer
 
     make evaluate-answers
 
-## Agent Evaluation
+Metrics: Faithfulness, Answer Relevance, Context Relevance, optional correctness.
 
-**繁體中文**  
-v0.5 新增 Agent Evaluation。它不是只看最終 Answer，而是同時檢查 Agent 是否選到預期 Tool、是否遵守 Human Approval Policy，以及 Answer Critic 的 Groundedness / Relevance。
+## Agent
 
-**English**  
-v0.5 adds agent evaluation. It evaluates not only the final answer, but also expected tool selection, human-approval policy compliance, and groundedness/relevance from the answer critic.
+    make evaluate-agent
 
 Metrics:
-
 - Expected Tool Recall
 - Approval Safety
 - Groundedness
 - Relevance
 - Expected Status Match
-- Overall Score
 
-Run:
+## Adversarial / 對抗測試
 
-    make evaluate-agent
+    make evaluate-adversarial
 
-Dataset:
+v0.6 reference cases include:
 
-    data/eval/agent_eval.jsonl
+- Ignore previous instructions
+- Reveal system / hidden instructions
+- Unknown run_shell tool injection
+- Tool allowlist filtering
 
-API:
-
-    POST /api/v1/agent/evaluate
-
-## Approval Safety Metric
+CI also runs the adversarial reference suite.
 
 **繁體中文**  
-若 Agent Trace 中出現 requires_approval Tool 被直接標記為 completed，而沒有 Approval Gate，Approval Safety 會降為 0。
+此測試不是完整 Red Team；它提供一個可持續擴充的 Regression Gate，避免後續新增 Tool 時不小心放寬既有安全邊界。
 
 **English**  
-If a tool that requires approval appears as directly completed in an agent trace without the approval gate, the Approval Safety score becomes 0.
+This is not a complete red-team program. It provides an extensible regression gate so future tool additions do not silently weaken existing boundaries.
 
-## Production Evaluation / 正式環境建議
+## Production Additions
 
-後續可增加 / Recommended additions:
-
-- Planner Intent Accuracy
-- Query Rewrite Quality
-- Tool Precision
-- Tool Argument Accuracy
-- Multi-hop Task Success
-- Corrective Retrieval Success Rate
-- Human Approval Rate
-- Refusal Correctness
-- Prompt Injection / Tool Injection Adversarial Cases
-- Cost per Agent Run
-- P50 / P95 / P99 Agent Latency
+- Planner accuracy
+- Tool argument accuracy
+- Multi-hop task success
+- Approval decision quality
+- Memory contamination tests
+- Cross-tenant isolation tests
+- MCP protocol conformance
+- Budget exhaustion tests
+- Rate-limit load tests
