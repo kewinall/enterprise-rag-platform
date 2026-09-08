@@ -202,9 +202,8 @@ class AgentStateStore:
 
     async def claim_job(self) -> dict | None:
         pool = self._require_pool()
-        async with pool.acquire() as conn:
-            async with conn.transaction():
-                row = await conn.fetchrow(
+        async with pool.acquire() as conn, conn.transaction():
+            row = await conn.fetchrow(
                     """
                     SELECT job_id, session_id, tenant_id, subject, roles, request
                     FROM agent_job
@@ -213,14 +212,14 @@ class AgentStateStore:
                     FOR UPDATE SKIP LOCKED
                     LIMIT 1
                     """
-                )
-                if row is None:
-                    return None
-                await conn.execute(
-                    "UPDATE agent_job SET status='running', started_at=NOW() WHERE job_id=$1",
-                    row["job_id"],
-                )
-                return dict(row)
+            )
+            if row is None:
+                return None
+            await conn.execute(
+                "UPDATE agent_job SET status='running', started_at=NOW() WHERE job_id=$1",
+                row["job_id"],
+            )
+            return dict(row)
 
     async def complete_job(self, job_id: str, result: dict) -> None:
         pool = self._require_pool()
