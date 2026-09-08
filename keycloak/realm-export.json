@@ -1,0 +1,84 @@
+{
+  "realm": "enterprise-rag",
+  "enabled": true,
+  "registrationAllowed": false,
+  "roles": {
+    "realm": [
+      {"name": "viewer", "description": "Query and read documents"},
+      {"name": "editor", "description": "Viewer permissions plus ingest and reindex"},
+      {"name": "admin", "description": "Full tenant-scoped administration"}
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "enterprise-rag-api",
+      "name": "Enterprise RAG API",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "redirectUris": ["http://localhost:8000/*"],
+      "webOrigins": ["http://localhost:8000"],
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "tenant-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tenant_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "enterprise-rag-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "viewer-a",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {"tenant_id": ["tenant-a"]},
+      "realmRoles": ["viewer"],
+      "credentials": [
+        {"type": "password", "value": "viewer-change-me", "temporary": false}
+      ]
+    },
+    {
+      "username": "editor-a",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {"tenant_id": ["tenant-a"]},
+      "realmRoles": ["editor"],
+      "credentials": [
+        {"type": "password", "value": "editor-change-me", "temporary": false}
+      ]
+    },
+    {
+      "username": "admin-b",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {"tenant_id": ["tenant-b"]},
+      "realmRoles": ["admin"],
+      "credentials": [
+        {"type": "password", "value": "admin-b-change-me", "temporary": false}
+      ]
+    }
+  ]
+}
