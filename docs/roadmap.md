@@ -5,7 +5,6 @@
 - Page / Section Metadata
 - Batch Ingestion
 - Document Lifecycle
-- Metadata Filter
 - Vector / Hybrid Retrieval
 - Retrieval Benchmark
 
@@ -18,30 +17,39 @@
 - LiteLLM Gateway
 - Web UI
 
-## v0.4 — 已完成 / Released
+## v0.4 — 已發布 / Released
 
-- OIDC JWT Validation
-- Viewer / Editor / Admin RBAC
-- Server-enforced Multi-tenancy
-- Tenant-scoped Qdrant / Cache
-- MinIO / S3 Object Storage
-- Presigned Document Download
-- Keycloak Demo Realm
+- OIDC / RBAC
+- Multi-tenancy
+- MinIO / S3
 - Kubernetes / Helm
-- HPA / PDB / NetworkPolicy
-- External Secret Integration Example
+- External Secrets Example
 - Offline Installation Bundle
 - Cache Revision Invalidation
-- Deployment-file CI Validation
 
-## v0.5 — 規劃中 / Planned
+## v0.5 — 已完成 / Released
 
 - Agentic RAG Orchestration
-- Query Planning / Query Rewrite
-- Corrective Retrieval
+- Query Planning / Rewrite
 - Multi-hop Retrieval
-- Reflection / Answer Critic
+- Context Critic
+- Corrective Retrieval
+- Answer Critic / Revision
 - Tool Calling
-- Human Approval Gate
-- Agent Evaluation
 - Tool Permission Policy
+- Human Approval Gate
+- Agent Trace
+- Agent Evaluation
+- Agentic Web UI
+
+## v0.6 — 規劃中 / Planned
+
+- Durable Agent Session / Checkpoint
+- Async Background Agent Jobs
+- Agent Memory with explicit retention policy
+- Read-only Data Platform Tools
+- MCP-compatible Tool Adapter
+- Cost / Token Budget Enforcement
+- Agent Rate Limits
+- OpenTelemetry Agent Dashboard
+- Expanded Adversarial / Prompt Injection Evaluation
