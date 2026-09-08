@@ -1,63 +1,107 @@
 # 安全 / Security
 
-## 定位 / Scope
+## Scope / 定位
 
 **繁體中文**  
-此 Repository 是 Reference Implementation，不是完整 Enterprise Security Control Plane。
+本 Repository 是 Enterprise AI Security Reference Implementation，不是完整 IAM / DLP / SIEM / Secret Platform。
 
 **English**  
-This repository is a reference implementation, not a complete enterprise security control plane.
+This repository is an enterprise AI security reference implementation, not a complete IAM, DLP, SIEM, or secret-management platform.
 
-## 已包含的 Control / Included controls
+## Authentication
 
-- API Key Gate
-- Upload Size Limit
-- Source Control 不提交 .env / no committed .env secrets
-- Non-root API Container
-- Prompt Injection Heuristic
+- API Key Mode：只用於 Local Demo / local demo only
+- OIDC Mode：JWT Signature + Issuer + Audience Validation
+- JWKS Client Cache
+- Role Claim Mapping
+- Tenant Claim Mapping
+
+## RBAC
+
+- viewer: Query / Search / List / Download
+- editor: viewer + Ingest / Reindex
+- admin: editor + Delete
+
+## Tenant Isolation
+
+**繁體中文**
+- Tenant 由 Principal 取得。
+- Client Filter 無法指定 tenant_id。
+- Document ID、Qdrant、Cache、CRUD 都 Tenant-scoped。
+- Cache Revision 也依 Tenant 分離。
+
+**English**
+- Tenant identity comes from the authenticated principal.
+- Client filters cannot specify tenant_id.
+- Document IDs, Qdrant data, cache, and CRUD are tenant-scoped.
+- Cache revisions are separated per tenant.
+
+## Object Storage
+
+- S3-compatible Storage
+- Tenant-scoped Object Key
+- Presigned Download URL
+- Client 不取得 Storage Credential / clients do not receive storage credentials
+- Production 建議 Encryption / KMS / Private Endpoint / Versioning
+
+## Audit Privacy
+
+PostgreSQL Audit 預設不保存 / does not store by default:
+
+- Question
+- Prompt
+- Answer
+- Document Content
+- Request Body
+
+只記錄 Operational Metadata。  
+Only operational metadata is recorded.
+
+## Telemetry Privacy
+
+OpenTelemetry Span 不保存 Prompt / Context / Answer 本文。  
+OpenTelemetry spans do not store prompt, context, or answer bodies.
+
+## Secret Management
+
+Helm Chart 使用 Existing Secret Reference。  
+The Helm chart consumes an existing secret reference.
+
+External Secrets example:
+
+    examples/kubernetes/external-secret.yaml
+
+詳見 / See: docs/secrets.md
+
+## Container / Kubernetes Hardening
+
+- Non-root User
+- Drop Linux Capabilities
+- No Privilege Escalation
+- Read-only Root Filesystem
+- Writable /tmp EmptyDir only
+- Liveness / Readiness Probe
+- NetworkPolicy
+- PDB
+- HPA Resource Boundaries
+
+## CI Security
+
 - pip-audit
 - Trivy Filesystem Scan
-- Local-first Model Option
-- Audit Record 不保存 Request Body / audit records exclude request bodies
-- Trace Span 不保存 Prompt / Context Content
-- Web UI 使用 sessionStorage 保存 Demo API Key，不做長期 Persistence
 
-## PostgreSQL Audit Privacy
+## Production Requirements
 
-**繁體中文**  
-Audit Table 預設只記錄 Request ID、HTTP Method、Path、Status Code、Duration 與低敏 Metadata，不保存 Question、Answer、Prompt 或 Uploaded Document Content。
+仍建議加入 / still recommended:
 
-**English**  
-The audit table records request ID, HTTP method, path, status code, duration, and low-sensitivity metadata. Questions, answers, prompts, and uploaded document content are not stored by default.
-
-## Redis Cache
-
-**繁體中文**  
-Redis 會保存 RAG Response，因此正式環境必須評估 Encryption、Network Isolation、TTL、Access Control 與 Data Classification。若內容敏感，可將 CACHE_ENABLED=false。
-
-**English**  
-Redis stores RAG responses, so production deployments must consider encryption, network isolation, TTL, access control, and data classification. Disable caching with CACHE_ENABLED=false for sensitive workloads when appropriate.
-
-## 正式環境要求 / Production requirements
-
-- Enterprise SSO / OIDC
-- RBAC / ABAC
-- Tenant Isolation
-- Rate Limiting
-- TLS / mTLS
-- Centralized Secret Management
-- DLP / Malware Scan
-- Network Segmentation
+- Enterprise SSO / Conditional Access
+- mTLS where required
+- Rate Limiting / WAF
+- Malware Scan
+- DLP
+- Managed KMS
+- Data Retention / Deletion Workflow
 - Model Allowlist
-- Egress Control
-- Data Retention / Deletion Policy
-- Managed Redis / PostgreSQL Encryption
-- Audit Retention and Access Governance
-
-## Prompt Injection
-
-**繁體中文**  
-RAG 不會消除 Prompt Injection。Retrieved Document 應視為 Untrusted Input；若未來加入 Agent / Tool Calling，Tool Permission 必須獨立於 Model Output 控制。
-
-**English**  
-RAG does not eliminate prompt injection. Treat retrieved documents as untrusted input. If agents or tools are added later, tool permissions must be controlled independently from model output.
+- Egress Proxy / Private Endpoint
+- Signed Images / SBOM Attestation
+- SIEM Integration
