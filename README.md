@@ -1,114 +1,119 @@
 # Enterprise RAG Platform
 
-**目前版本 / Current release: v0.4.0**
+**目前版本 / Current release: v0.5.0**
 
-> **繁體中文**：Enterprise RAG Platform 是一個以企業落地為目標的 Retrieval-Augmented Generation 參考專案。v0.4 在 Hybrid Retrieval、Evaluation、Cache、Audit、Observability 與 LiteLLM Gateway 基礎上，加入 OIDC/RBAC、Multi-tenancy、MinIO/S3 Object Storage、Kubernetes/Helm、External Secret Integration 與 Air-Gapped Deployment。
+> **繁體中文**：Enterprise RAG Platform 是一個以企業落地為目標的 RAG / Agentic AI Reference Project。v0.5 在 v0.4 的 OIDC/RBAC、Multi-tenancy、Object Storage、Audit、Cache、Observability、Kubernetes 與 Offline Delivery 基礎上，加入 Query Planning、Query Rewrite、Multi-hop Retrieval、Corrective Retrieval、Tool Calling、Context/Answer Critic、Human Approval Gate 與 Agent Evaluation。
 >
-> **English**: Enterprise RAG Platform is a production-oriented Retrieval-Augmented Generation reference project. v0.4 extends hybrid retrieval, evaluation, caching, auditing, observability, and LiteLLM gateway capabilities with OIDC/RBAC, multi-tenancy, MinIO/S3 object storage, Kubernetes/Helm delivery, external secret integration, and air-gapped deployment.
+> **English**: Enterprise RAG Platform is a production-oriented RAG / Agentic AI reference project. v0.5 extends the v0.4 identity, multi-tenancy, object storage, audit, cache, observability, Kubernetes, and offline-delivery foundation with query planning, query rewrite, multi-hop retrieval, corrective retrieval, tool calling, context/answer critics, human approval gates, and agent evaluation.
 
 > **繁體中文**：本 Repository 僅使用 synthetic sample，不包含客戶、公司、真實 Credential 或內部環境資料。
 >
 > **English**: This repository uses synthetic samples only and contains no customer, company, real credential, or internal-environment data.
 
-## v0.4 重點 / v0.4 Highlights
+## v0.5 重點 / v0.5 Highlights
 
-- OIDC JWT Validation
-- Viewer / Editor / Admin RBAC
-- Server-enforced tenant isolation
-- Tenant-scoped Qdrant metadata and document IDs
-- Tenant-scoped Redis cache with revision invalidation
-- MinIO / S3 original document storage
-- Presigned document download
-- Optional Keycloak demo realm
-- Kubernetes Helm Chart
-- HPA / PDB / NetworkPolicy / SecurityContext
-- External Secrets example
-- Offline bundle scripts
-- CI validation for Python, Docker Compose, Helm, Keycloak JSON, and shell syntax
+- Agentic RAG Orchestrator
+- Query Planning / Rewrite
+- Multi-hop Retrieval
+- Corrective Retrieval
+- Context Sufficiency Critic
+- Answer Critic + Optional Revision
+- Tool Calling
+- Tool Permission Policy
+- Human Approval Gate for destructive tools
+- Redis-backed Approval TTL
+- Agent Trace
+- Agent Evaluation
+- Standard RAG / Agentic RAG Web UI switch
+- Helm / Offline bundle version advanced to 0.5.0
 
-詳見 / See: docs/v0.4.md and CHANGELOG.md.
+詳見 / See: docs/v0.5.md, docs/agentic-rag.md, docs/tool-policy.md.
 
-## 架構 / Architecture
+## Agentic RAG Flow / Agentic RAG 流程
 
-    Browser / API Client
-            |
-            v
-       OIDC or API Key
-            |
-            v
-          FastAPI
-            |
-      +-----+-------------------------+
-      |                               |
-      v                               v
-    RBAC + Tenant Scope           PostgreSQL Audit
-      |
-      +------> Redis Cache + Tenant Revision
-      |
-      +------> MinIO / S3 Original Document
+    User Question
+         |
+         v
+    Query Planner
+         |
+         +--> Rewrite
+         +--> Tool Calls
+         +--> Subqueries
+         |
+         v
+    Permission Policy
+         |
+         +--> Read-only Tool --------+
+         |                           |
+         +--> Destructive Tool       |
+                 |                   |
+                 v                   |
+          Human Approval Gate        |
+                 |                   |
+                 +-------------------+
+                         |
+                         v
+                 Multi-hop Retrieval
+                         |
+                         v
+                   Context Critic
+                    /          \
+             sufficient      insufficient
+                 |               |
+                 |               v
+                 |       Corrective Retrieval
+                 |               |
+                 +-------+-------+
+                         |
+                         v
+                    Generation
+                         |
+                         v
+                    Answer Critic
+                    /          \
+                  pass        revise
+                    |           |
+                    +-----+-----+
+                          |
+                          v
+                 Answer + Citations
+                 + Agent Trace
+
+## Tool Policy
+
+| Tool | Role | Approval |
+|---|---|---|
+| search_knowledge | viewer | No |
+| list_documents | viewer | No |
+| get_document_metadata | viewer | No |
+| delete_document | admin | **Required** |
+
+**繁體中文**：模型只能提出 Tool Call；真正執行仍受 Server-side Role、Tenant 與 Approval Policy 控制。  
+**English**: The model may propose tool calls, but execution remains controlled by server-side role, tenant, and approval policies.
+
+## Human Approval
+
+Agent 若提出 delete_document：
+
+    Agent
       |
       v
-    Hybrid Retrieval
-      |            |
-      v            v
-    Qdrant        BM25
-                  /
-                 /
-        RRF + Optional Reranker
-                 |
-                 v
-              Context
-                 |
-                 v
-              LiteLLM
-                 |
-                 v
-               Ollama
-
-    Runtime Trace --> OpenTelemetry Collector
-
-## RBAC
-
-| Role | Query/Search/List/Download | Ingest/Reindex | Delete |
-|---|---:|---:|---:|
-| viewer | ✅ | ❌ | ❌ |
-| editor | ✅ | ✅ | ❌ |
-| admin | ✅ | ✅ | ✅ |
-
-## Multi-tenancy
-
-**繁體中文**
-- tenant_id 由 Authentication Principal 決定。
-- Client 不能用 Retrieval Filter 覆蓋 Tenant。
-- Qdrant Chunk、Document ID、CRUD、Cache Key 都包含 Tenant Boundary。
-- 不同 Tenant 的同名文件會產生不同 Document ID。
-
-**English**
-- tenant_id is derived from the authentication principal.
-- Clients cannot override tenant scope through retrieval filters.
-- Qdrant chunks, document IDs, CRUD operations, and cache keys all include the tenant boundary.
-- Same-named documents in different tenants receive different document IDs.
-
-## Object Storage
-
-原始文件會保存至 S3-compatible Object Storage。  
-Original documents are stored in S3-compatible object storage.
-
-Default demo:
-
-    MinIO API:     http://localhost:9000
-    MinIO Console: http://localhost:9001
-
-Object key:
-
-    {tenant_id}/{document_id}/{filename}
-
-下載會先做 Role + Tenant Validation，再產生短效 Presigned URL。  
-Downloads require role and tenant validation before a short-lived presigned URL is issued.
+    Approval Request
+      |
+      v
+    Redis TTL
+      |
+      +--> Reject
+      |
+      +--> Admin Approve
+              |
+              v
+       Re-check Tenant/Role
+              |
+              v
+          Execute Tool
 
 ## 快速開始 / Quick start
-
-### Local Demo
 
     git clone https://github.com/kewinall/enterprise-rag-platform.git
     cd enterprise-rag-platform
@@ -120,131 +125,88 @@ Web UI:
 
     http://localhost:8000/
 
-Default auth mode:
+Web UI 可切換 / supports:
 
-    AUTH_MODE=api_key
+- Standard RAG
+- Agentic RAG
+- Agent Trace
+- Human Approval / Reject
 
-### OIDC Demo
+## Agent Configuration
 
-啟動 Keycloak Profile / Start Keycloak profile:
+    AGENT_ENABLED=true
+    AGENT_MAX_STEPS=10
+    AGENT_MAX_SUBQUERIES=3
+    AGENT_MAX_TOOL_CALLS=6
+    AGENT_APPROVAL_TTL_SECONDS=600
+    AGENT_ENABLE_ANSWER_REVISION=true
 
-    docker compose --profile oidc up -d
-
-將 .env 改為 / Set:
-
-    AUTH_MODE=oidc
-
-Demo realm:
-
-    http://localhost:8080/realms/enterprise-rag
-
-詳見 / See: docs/auth-tenancy.md
-
-## Runtime Services
-
-| Service | Default | Purpose |
-|---|---|---|
-| FastAPI / Web UI | 8000 | RAG API + UI |
-| Qdrant | 6333 / 6334 | Vector DB |
-| Ollama | 11434 | Local LLM |
-| LiteLLM | 4000 | Model Gateway |
-| PostgreSQL | 5432 | Audit Store |
-| Redis | 6379 | Answer Cache |
-| MinIO | 9000 / 9001 | Object Storage |
-| OTel Collector | 4317 / 4318 | Trace Receiver |
-| Keycloak | 8080 | Optional OIDC Demo |
-
-## Kubernetes / Helm
-
-Chart:
-
-    charts/enterprise-rag
-
-Install:
-
-    helm upgrade --install rag ./charts/enterprise-rag
-
-Chart includes:
-
-- Deployment
-- Service
-- Optional Ingress
-- ConfigMap
-- Existing Secret Reference
-- HPA
-- PDB
-- NetworkPolicy
-- Health Probes
-- Non-root Security Context
-- Read-only Root Filesystem + writable /tmp
-
-詳見 / See: docs/kubernetes.md
-
-## Offline / Air-Gapped Deployment
-
-Prepare:
-
-    bash scripts/offline/prepare-bundle.sh ./offline-bundle
-
-Verify:
-
-    bash scripts/offline/verify-bundle.sh ./offline-bundle
-
-Import:
-
-    bash scripts/offline/import-bundle.sh ./offline-bundle
-
-詳見 / See: docs/offline-deployment.md
-
-## API
+## Agent API
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | /api/v1/me | Current principal / tenant / roles |
-| POST | /api/v1/ingest | Ingest document |
-| POST | /api/v1/ingest/batch | Batch ingest |
-| GET | /api/v1/documents | Tenant-scoped document list |
-| GET | /api/v1/documents/{document_id}/download | Presigned document download |
-| PUT | /api/v1/documents/{document_id}/reindex | Reindex |
-| DELETE | /api/v1/documents/{document_id} | Delete |
-| POST | /api/v1/search | Retrieval only |
-| POST | /api/v1/query | RAG answer + citations |
-| POST | /api/v1/evaluate/answer | RAGAS-style answer evaluation |
+| GET | /api/v1/agent/tools | Tool policy / permission view |
+| POST | /api/v1/agent/query | Agentic RAG query |
+| GET | /api/v1/agent/approvals/{action_id} | Pending approval |
+| POST | /api/v1/agent/approvals/{action_id}/approve | Approve and execute |
+| POST | /api/v1/agent/approvals/{action_id}/reject | Reject action |
+| POST | /api/v1/agent/evaluate | Evaluate an agent result |
 
-## CI / Security
+Existing RAG / Document APIs remain available.
 
-CI validates:
+## Evaluation
 
-    ruff check app tests scripts
-    pytest -q
-    docker compose --env-file .env.example config --quiet
-    helm lint charts/enterprise-rag
-    helm template ci charts/enterprise-rag
-    python -m json.tool keycloak/realm-export.json
-    bash -n scripts/offline/*.sh
+Retrieval:
 
-Security workflow:
+    make benchmark
 
-- pip-audit
-- Trivy filesystem scan
+RAG Answer:
+
+    make evaluate-answers
+
+Agent:
+
+    make evaluate-agent
+
+Agent evaluation includes:
+
+- Expected Tool Recall
+- Approval Safety
+- Groundedness
+- Relevance
+- Expected Status Match
+
+## Enterprise Controls retained from v0.4
+
+- OIDC / JWT Validation
+- Viewer / Editor / Admin RBAC
+- Server-enforced Multi-tenancy
+- MinIO / S3
+- PostgreSQL Audit
+- Redis Cache + Tenant Revision
+- OpenTelemetry
+- LiteLLM
+- Kubernetes / Helm
+- NetworkPolicy / HPA / PDB
+- External Secrets Example
+- Air-Gapped Bundle
+- pip-audit / Trivy / CI
 
 ## 文件 / Documentation
 
-- docs/architecture.md — 架構 / Architecture
-- docs/installation.md — 安裝 / Installation
+- docs/agentic-rag.md — Agentic RAG
+- docs/tool-policy.md — Tool Permission / Approval Policy
+- docs/v0.5.md — v0.5 Feature Guide
+- docs/architecture.md — Architecture
+- docs/evaluation.md — Evaluation
+- docs/security.md — Security
+- docs/troubleshooting.md — Troubleshooting
+- docs/installation.md — Installation
 - docs/auth-tenancy.md — OIDC / RBAC / Multi-tenancy
 - docs/object-storage.md — MinIO / S3
 - docs/kubernetes.md — Kubernetes / Helm
-- docs/secrets.md — Secret Management
 - docs/offline-deployment.md — Air-Gapped Deployment
-- docs/rag-design.md — RAG Design
-- docs/evaluation.md — Evaluation
 - docs/observability.md — OpenTelemetry
-- docs/audit-cache.md — Audit + Cache
-- docs/litellm.md — LiteLLM
-- docs/v0.2.md / docs/v0.3.md / docs/v0.4.md — Release Guides
-- docs/security.md — Security
-- docs/troubleshooting.md — Troubleshooting
 - docs/roadmap.md — Roadmap
 - CHANGELOG.md — Changelog
 
