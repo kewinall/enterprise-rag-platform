@@ -24,6 +24,7 @@ ingress:
 
 config:
   APP_ENV: production
+  HF_HOME: /tmp/huggingface
   AUTH_MODE: oidc
   DEFAULT_TENANT_ID: demo
   OIDC_ISSUER: https://identity.example.local/realms/enterprise-rag
