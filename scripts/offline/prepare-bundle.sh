@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUNDLE_DIR="${1:-${ROOT_DIR}/offline-bundle}"
 OLLAMA_MODEL="${OLLAMA_MODEL:-llama3.2:3b}"
-APP_IMAGE="${APP_IMAGE:-enterprise-rag-platform:0.4.0}"
+APP_IMAGE="${APP_IMAGE:-enterprise-rag-platform:0.5.0}"
 TMP_CONTAINER="enterprise-rag-offline-model-$$"
 
 cleanup() {
