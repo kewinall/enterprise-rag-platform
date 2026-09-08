@@ -13,6 +13,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_started
       otel-collector:
         condition: service_started
     volumes:
@@ -75,6 +77,18 @@ services:
       timeout: 3s
       retries: 10
 
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-minio-change-me}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.160.0
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
@@ -84,8 +98,21 @@ services:
     volumes:
       - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.3
+    profiles: ["oidc"]
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin-change-me
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+
 volumes:
   qdrant-data:
   ollama-data:
   postgres-data:
   redis-data:
+  minio-data:
