@@ -8,5 +8,5 @@ def extract_json_object(raw: str) -> dict:
         raise ValueError("Model response does not contain a JSON object")
     payload = json.loads(raw[start : end + 1])
     if not isinstance(payload, dict):
-        raise ValueError("Model response must decode to a JSON object")
+        raise TypeError("Model response must decode to a JSON object")
     return payload
