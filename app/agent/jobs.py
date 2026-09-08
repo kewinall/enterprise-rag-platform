@@ -1,13 +1,21 @@
 import asyncio
+import json
 import logging
 from functools import lru_cache
 
 from app.agent.orchestrator import run_agent
 from app.agent.state import get_agent_state_store
 from app.core.config import get_settings
+from app.core.metrics import AGENT_PENDING_JOBS
 from app.core.security import Principal
 
 logger = logging.getLogger(__name__)
+
+
+def _json_value(value):
+    if isinstance(value, str):
+        return json.loads(value)
+    return value
 
 
 class AgentJobWorker:
@@ -43,15 +51,18 @@ class AgentJobWorker:
                 continue
 
             if job is None:
+                AGENT_PENDING_JOBS.set(0)
                 await asyncio.sleep(settings.agent_job_poll_seconds)
                 continue
 
+            AGENT_PENDING_JOBS.set(1)
             job_id = str(job["job_id"])
-            request = dict(job["request"])
+            request = dict(_json_value(job["request"]))
+            roles = list(_json_value(job["roles"]))
             principal = Principal(
                 subject=str(job["subject"]),
                 tenant_id=str(job["tenant_id"]),
-                roles=frozenset(str(role) for role in job["roles"]),
+                roles=frozenset(str(role) for role in roles),
                 auth_mode="job",
             )
             try:
