@@ -1,0 +1,88 @@
+replicaCount: 2
+
+image:
+  repository: enterprise-rag-platform
+  tag: "0.4.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: rag.example.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+config:
+  APP_ENV: production
+  AUTH_MODE: oidc
+  DEFAULT_TENANT_ID: demo
+  OIDC_ISSUER: https://identity.example.local/realms/enterprise-rag
+  OIDC_AUDIENCE: enterprise-rag-api
+  OIDC_JWKS_URL: https://identity.example.local/realms/enterprise-rag/protocol/openid-connect/certs
+  OIDC_ROLES_CLAIM: realm_access.roles
+  OIDC_TENANT_CLAIM: tenant_id
+  QDRANT_URL: http://qdrant.example.svc:6333
+  QDRANT_COLLECTION: enterprise_rag
+  OBJECT_STORE_ENABLED: "true"
+  S3_ENDPOINT_URL: http://minio.example.svc:9000
+  S3_REGION: us-east-1
+  S3_BUCKET: enterprise-rag
+  LLM_BASE_URL: http://litellm.example.svc:4000/v1
+  LLM_MODEL: enterprise-rag
+  CACHE_ENABLED: "true"
+  REDIS_URL: redis://redis.example.svc:6379/0
+  AUDIT_ENABLED: "true"
+  OTEL_ENABLED: "true"
+  OTEL_SERVICE_NAME: enterprise-rag-api
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://otel-collector.example.svc:4318/v1/traces
+
+secret:
+  existingSecret: enterprise-rag-secrets
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "2"
+    memory: 4Gi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: ["ALL"]
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  allowedEgressCIDRs: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
