@@ -34,3 +34,15 @@ class AnswerEvaluationRequest(BaseModel):
     answer: str = Field(min_length=1, max_length=12000)
     contexts: list[str] = Field(min_length=1, max_length=20)
     reference: str | None = Field(default=None, max_length=12000)
+
+
+class AgentQueryRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=4000)
+    top_k: int = Field(default=5, ge=1, le=20)
+    mode: Literal["vector", "hybrid"] = "hybrid"
+
+
+class AgentEvaluationRequest(BaseModel):
+    result: dict
+    expected_tools: list[str] = Field(default_factory=list, max_length=20)
+    expected_status: str | None = Field(default=None, max_length=64)
