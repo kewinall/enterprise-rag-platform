@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: enterprise-rag-platform
-  tag: "0.4.0"
+  tag: "0.5.0"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -40,6 +40,12 @@ config:
   S3_BUCKET: enterprise-rag
   LLM_BASE_URL: http://litellm.example.svc:4000/v1
   LLM_MODEL: enterprise-rag
+  AGENT_ENABLED: "true"
+  AGENT_MAX_STEPS: "10"
+  AGENT_MAX_SUBQUERIES: "3"
+  AGENT_MAX_TOOL_CALLS: "6"
+  AGENT_APPROVAL_TTL_SECONDS: "600"
+  AGENT_ENABLE_ANSWER_REVISION: "true"
   CACHE_ENABLED: "true"
   REDIS_URL: redis://redis.example.svc:6379/0
   AUDIT_ENABLED: "true"

@@ -18,3 +18,6 @@ benchmark:
 
 evaluate-answers:
 	python scripts/evaluate_answers.py --dataset data/eval/answer_eval.jsonl --k 5 --mode hybrid
+
+evaluate-agent:
+	python scripts/evaluate_agent.py --dataset data/eval/agent_eval.jsonl --top-k 5 --mode hybrid

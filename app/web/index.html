@@ -6,28 +6,33 @@
   <title>Enterprise RAG Platform</title>
   <style>
     :root { font-family: Inter, system-ui, sans-serif; color-scheme: light dark; }
-    body { max-width: 1100px; margin: 0 auto; padding: 24px; line-height: 1.55; }
+    body { max-width: 1180px; margin: 0 auto; padding: 24px; line-height: 1.55; }
     header { margin-bottom: 24px; }
-    .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit,minmax(300px,1fr)); }
-    .card { border: 1px solid #8886; border-radius: 12px; padding: 18px; }
+    .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit,minmax(320px,1fr)); }
+    .card { border: 1px solid #8886; border-radius: 12px; padding: 18px; margin-bottom: 18px; }
     label { display:block; font-weight:600; margin:10px 0 5px; }
     input, textarea, select, button { width:100%; box-sizing:border-box; padding:10px; }
     textarea { min-height:110px; resize:vertical; }
     button { margin-top:10px; cursor:pointer; font-weight:600; }
+    button.danger { border-color:#b42318; color:#b42318; }
+    button.safe { border-color:#16803c; color:#16803c; }
     .muted { opacity:.72; font-size:.92rem; }
     .status { white-space:pre-wrap; margin-top:10px; }
     .answer { white-space:pre-wrap; padding:12px; border-left:4px solid currentColor; margin-top:12px; }
     .citation { border-top:1px solid #8885; padding:8px 0; font-size:.92rem; }
     .doc { margin-bottom:10px; }
     .doc button { width:auto; margin-left:8px; padding:4px 8px; }
+    .approval { border:1px solid #b42318; border-radius:10px; padding:12px; margin-top:12px; }
+    .approval-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    pre { white-space:pre-wrap; word-break:break-word; max-height:360px; overflow:auto; }
     ul { padding-left:22px; }
   </style>
 </head>
 <body>
 <header>
   <h1>Enterprise RAG Platform</h1>
-  <p>企業級 RAG 展示介面 / Enterprise RAG demonstration UI</p>
-  <p class="muted">v0.4 · OIDC/RBAC · Multi-tenant · MinIO/S3 · RAG Chat</p>
+  <p>企業級 RAG / Agentic AI 展示介面 · Enterprise RAG / Agentic AI demonstration UI</p>
+  <p class="muted">v0.5 · Planning · Multi-hop · Corrective Retrieval · Critic · Tool Approval</p>
 </header>
 
 <div class="grid">
@@ -47,7 +52,6 @@
 
     <button id="whoami">確認身份 / Who am I?</button>
     <div id="identityStatus" class="status muted"></div>
-    <p class="muted">僅保存於目前 Browser Session / Stored only in the current browser session.</p>
   </section>
 
   <section class="card">
@@ -58,25 +62,54 @@
   </section>
 </div>
 
-<section class="card" style="margin-top:18px">
+<section class="card">
   <h2>已索引文件 / Indexed documents</h2>
   <button id="refreshDocuments">重新整理 / Refresh</button>
   <ul id="documents"></ul>
 </section>
 
-<section class="card" style="margin-top:18px">
-  <h2>RAG Chat / RAG 問答</h2>
-  <label for="mode">Retrieval Mode</label>
-  <select id="mode">
-    <option value="hybrid">Hybrid</option>
-    <option value="vector">Vector</option>
-  </select>
+<section class="card">
+  <h2>AI Query / AI 問答</h2>
+
+  <div class="grid">
+    <div>
+      <label for="engine">Engine / 執行引擎</label>
+      <select id="engine">
+        <option value="rag">Standard RAG</option>
+        <option value="agent">Agentic RAG</option>
+      </select>
+    </div>
+    <div>
+      <label for="mode">Retrieval Mode</label>
+      <select id="mode">
+        <option value="hybrid">Hybrid</option>
+        <option value="vector">Vector</option>
+      </select>
+    </div>
+  </div>
+
   <label for="question">問題 / Question</label>
-  <textarea id="question" placeholder="例如：What should happen before a production release?"></textarea>
+  <textarea id="question" placeholder="例如：Compare the production change process with security governance."></textarea>
   <button id="askButton">送出問題 / Ask</button>
+
   <div id="queryStatus" class="status muted"></div>
   <div id="answer" class="answer"></div>
   <div id="citations"></div>
+
+  <div id="approvalBox" class="approval" hidden>
+    <strong>Human Approval Required / 需要人工核准</strong>
+    <div id="approvalDetails" class="status"></div>
+    <div class="approval-actions">
+      <button id="approveButton" class="danger">Approve & Execute / 核准並執行</button>
+      <button id="rejectButton" class="safe">Reject / 拒絕</button>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Agent Trace / Agent 執行軌跡</h2>
+  <p class="muted">Standard RAG 不產生 Agent Trace。Agentic RAG 會顯示 Planning、Tool、Critic、Corrective Retrieval 與 Revision。</p>
+  <pre id="agentTrace">No agent trace.</pre>
 </section>
 
 <script>
@@ -89,6 +122,11 @@ const queryStatus = document.getElementById("queryStatus");
 const answer = document.getElementById("answer");
 const citations = document.getElementById("citations");
 const documents = document.getElementById("documents");
+const agentTrace = document.getElementById("agentTrace");
+const approvalBox = document.getElementById("approvalBox");
+const approvalDetails = document.getElementById("approvalDetails");
+
+let currentApprovalId = null;
 
 authType.value = sessionStorage.getItem("rag-auth-type") || "api_key";
 credential.value = sessionStorage.getItem("rag-credential") || "change-me";
@@ -211,6 +249,35 @@ document.getElementById("uploadButton").addEventListener("click", async function
   }
 });
 
+function renderCitations(items) {
+  citations.replaceChildren();
+  (items || []).forEach(function (item) {
+    const div = document.createElement("div");
+    div.className = "citation";
+    let location = "[" + item.id + "] " + (item.source || "unknown");
+    if (item.page) location += " · page " + item.page;
+    if (item.section) location += " · " + item.section;
+    div.textContent = location;
+    citations.appendChild(div);
+  });
+}
+
+function renderApproval(payload) {
+  currentApprovalId = null;
+  approvalBox.hidden = true;
+  approvalDetails.textContent = "";
+
+  if (!payload.approvals || !payload.approvals.length) return;
+  const approval = payload.approvals[0];
+  currentApprovalId = approval.action_id;
+  approvalBox.hidden = false;
+  approvalDetails.textContent =
+    "tool=" + approval.tool_name +
+    " · action_id=" + approval.action_id +
+    " · expires=" + approval.expires_in_seconds + "s\n" +
+    JSON.stringify(approval.arguments, null, 2);
+}
+
 document.getElementById("askButton").addEventListener("click", async function () {
   const question = document.getElementById("question").value.trim();
   if (!question) {
@@ -219,37 +286,81 @@ document.getElementById("askButton").addEventListener("click", async function ()
   }
 
   answer.textContent = "";
-  citations.replaceChildren();
+  renderCitations([]);
+  renderApproval({});
+  agentTrace.textContent = "No agent trace.";
   queryStatus.textContent = "查詢中 / Querying...";
 
+  const engine = document.getElementById("engine").value;
+  const endpoint = engine === "agent" ? "/api/v1/agent/query" : "/api/v1/query";
+
   try {
-    const response = await fetch("/api/v1/query", {
+    const body = {
+      question: question,
+      top_k: 5,
+      mode: document.getElementById("mode").value
+    };
+    if (engine === "rag") body.use_cache = true;
+
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: headers(true),
-      body: JSON.stringify({
-        question: question,
-        top_k: 5,
-        mode: document.getElementById("mode").value,
-        use_cache: true
-      })
+      body: JSON.stringify(body)
     });
     const payload = await readJson(response);
-    answer.textContent = payload.answer;
-    const cacheState = payload.cache && payload.cache.hit ? "HIT" : "MISS";
-    queryStatus.textContent =
-      "Retrieval=" + payload.retrieval.mode + " · Cache=" + cacheState;
 
-    payload.citations.forEach(function (item) {
-      const div = document.createElement("div");
-      div.className = "citation";
-      let location = "[" + item.id + "] " + item.source;
-      if (item.page) location += " · page " + item.page;
-      if (item.section) location += " · " + item.section;
-      div.textContent = location;
-      citations.appendChild(div);
-    });
+    if (engine === "agent") {
+      answer.textContent = payload.answer || "Awaiting human approval.";
+      queryStatus.textContent = "Agent status=" + payload.status;
+      renderCitations(payload.citations || []);
+      agentTrace.textContent = JSON.stringify({
+        plan: payload.plan,
+        review: payload.review,
+        trace: payload.trace
+      }, null, 2);
+      renderApproval(payload);
+    } else {
+      answer.textContent = payload.answer;
+      const cacheState = payload.cache && payload.cache.hit ? "HIT" : "MISS";
+      queryStatus.textContent =
+        "Retrieval=" + payload.retrieval.mode + " · Cache=" + cacheState;
+      renderCitations(payload.citations || []);
+    }
   } catch (error) {
     queryStatus.textContent = "Error: " + error.message;
+  }
+});
+
+document.getElementById("approveButton").addEventListener("click", async function () {
+  if (!currentApprovalId) return;
+  try {
+    const response = await fetch(
+      "/api/v1/agent/approvals/" + encodeURIComponent(currentApprovalId) + "/approve",
+      {method: "POST", headers: headers(false)}
+    );
+    const payload = await readJson(response);
+    approvalDetails.textContent = JSON.stringify(payload, null, 2);
+    queryStatus.textContent = "Approval executed successfully.";
+    currentApprovalId = null;
+    await refreshDocuments();
+  } catch (error) {
+    queryStatus.textContent = "Approval error: " + error.message;
+  }
+});
+
+document.getElementById("rejectButton").addEventListener("click", async function () {
+  if (!currentApprovalId) return;
+  try {
+    const response = await fetch(
+      "/api/v1/agent/approvals/" + encodeURIComponent(currentApprovalId) + "/reject",
+      {method: "POST", headers: headers(false)}
+    );
+    const payload = await readJson(response);
+    approvalDetails.textContent = JSON.stringify(payload, null, 2);
+    queryStatus.textContent = "Action rejected.";
+    currentApprovalId = null;
+  } catch (error) {
+    queryStatus.textContent = "Reject error: " + error.message;
   }
 });
 

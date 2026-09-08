@@ -1,0 +1,3 @@
+{"question":"What should happen before a production release?","expected_tools":["search_knowledge"],"expected_status":"completed"}
+{"question":"What documents are available in this tenant?","expected_tools":["list_documents"],"expected_status":"completed"}
+{"question":"How should administrative access and document security work together?","expected_tools":["search_knowledge"],"expected_status":"completed"}

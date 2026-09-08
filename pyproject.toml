@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "enterprise-rag-platform"
-version = "0.4.0"
-description = "Production-oriented enterprise RAG reference platform"
+version = "0.5.0"
+description = "Production-oriented enterprise RAG and agentic AI reference platform"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}

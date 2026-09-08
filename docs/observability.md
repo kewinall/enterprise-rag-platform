@@ -3,12 +3,12 @@
 ## OpenTelemetry
 
 **繁體中文**  
-v0.3 使用 OpenTelemetry SDK Manual Instrumentation。若設定 OTEL_EXPORTER_OTLP_TRACES_ENDPOINT，Trace 會透過 OTLP HTTP Export；若未設定 Endpoint 則使用 Console Exporter。
+平台使用 OpenTelemetry Manual Instrumentation。設定 OTEL_EXPORTER_OTLP_TRACES_ENDPOINT 後會使用 OTLP HTTP Export；未設定時使用 Console Exporter。
 
 **English**  
-v0.3 uses manual OpenTelemetry SDK instrumentation. When OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is configured, traces are exported over OTLP HTTP; otherwise the console exporter is used.
+The platform uses manual OpenTelemetry instrumentation. When OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is configured, traces are exported over OTLP HTTP; otherwise the console exporter is used.
 
-## Spans
+## RAG Spans
 
 - http.request
 - rag.retrieve
@@ -16,22 +16,49 @@ v0.3 uses manual OpenTelemetry SDK instrumentation. When OTEL_EXPORTER_OTLP_TRAC
 - llm.chat_completion
 - rag.evaluate_answer
 
+## Agent Spans
+
+v0.5 adds:
+
+- agent.run
+- agent.plan
+- agent.context_critic
+- agent.answer_critic
+
+Agent Tool Execution 仍可從 agent.run Trace 與 API Response Trace 交叉確認。  
+Agent tool execution can be correlated through the agent.run trace and the API response trace.
+
 ## Data Minimization / 資料最小化
 
 **繁體中文**  
-Span 只記錄 Model Name、Retrieval Mode、Top-K、Result Count、HTTP Status 等 Operational Metadata，不記錄 Question、Prompt、Retrieved Context 或 Answer Text。
+Span 記錄 Operational Metadata，例如 Model、Retrieval Mode、Top-K、Tenant ID、Result Count、HTTP Status。Question、Prompt、Context、Answer Body 不寫入 Span Attribute。
 
 **English**  
-Spans record operational metadata such as model name, retrieval mode, top-k, result counts, and HTTP status. They do not record questions, prompts, retrieved context, or answer text.
+Spans record operational metadata such as model, retrieval mode, top-k, tenant ID, result count, and HTTP status. Questions, prompts, contexts, and answer bodies are not written to span attributes.
 
 ## Local Collector
 
-Docker Compose 內含 OTel Collector，使用 Debug Exporter：
-
     docker compose logs -f otel-collector
 
-**繁體中文**  
-正式環境可將 Exporter 改為 Grafana Tempo、Jaeger 或支援 OTLP 的 APM Platform。
+## Production Backend
 
-**English**  
-Production deployments can replace the debug exporter with Grafana Tempo, Jaeger, or another OTLP-compatible APM platform.
+可替換 / Can be replaced with:
+
+- Grafana Tempo
+- Jaeger
+- OpenTelemetry-compatible APM
+- Enterprise observability platform
+
+## Recommended Agent Dashboard
+
+後續建議 / Recommended:
+
+- Agent Runs
+- Planner Latency
+- Tool Calls per Run
+- Approval Required Rate
+- Approval Reject Rate
+- Corrective Retrieval Rate
+- Revision Rate
+- Groundedness / Relevance Distribution
+- Token / Cost per Agent Run

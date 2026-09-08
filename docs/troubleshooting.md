@@ -1,70 +1,39 @@
 # 故障排除 / Troubleshooting
 
-## Readiness
-
-    curl http://localhost:8000/ready
-
-回傳 Dependencies / returns dependencies:
-
-- qdrant
-- redis
-- postgres
-- object_store
-
-## OIDC Token 401
+## Agentic RAG Disabled
 
 確認 / Check:
 
-- AUTH_MODE=oidc
-- OIDC_ISSUER 與 Token iss 相同 / matches token iss
-- OIDC_AUDIENCE 存在於 aud / exists in aud
-- OIDC_JWKS_URL API Container 可連線 / reachable from API container
-- Token 尚未過期 / token not expired
+    AGENT_ENABLED=true
 
-Keycloak logs:
+Endpoint:
 
-    docker compose logs keycloak
+    POST /api/v1/agent/query
 
-## 403 Role Required
-
-查看 Principal:
-
-    GET /api/v1/me
-
-確認 Token Role Claim 包含 viewer、editor 或 admin。  
-Confirm the role claim contains viewer, editor, or admin.
-
-## Tenant 看不到文件 / Tenant cannot see documents
+## Planner 回傳 degraded / Planner degraded
 
 **繁體中文**  
-v0.4 只會查詢與 Principal tenant_id 相同的 Chunk。v0.3 升級後的 Legacy Chunk 沒有 tenant_id，需要重新 Ingest。
+如果 Planner 回傳非 JSON，Agent Trace 會顯示 plan status=degraded，並安全降級為 search_knowledge。
 
 **English**  
-v0.4 only retrieves chunks matching the principal tenant_id. Legacy v0.3 chunks have no tenant_id and must be re-ingested.
+If the planner returns invalid JSON, the trace shows plan status=degraded and safely falls back to search_knowledge.
 
-## Object Store unavailable
+確認 LiteLLM / Ollama:
 
-MinIO:
+    docker compose logs litellm
+    docker compose exec ollama ollama list
 
-    docker compose logs minio
+## Critic degraded
 
-確認 / Check:
+Context / Answer Critic 若無法解析 JSON，Trace 會顯示 degraded。  
+If critic JSON cannot be parsed, the trace records degraded status.
 
-    S3_ENDPOINT_URL
-    S3_BUCKET
-    S3_ACCESS_KEY_ID
-    S3_SECRET_ACCESS_KEY
+這不會放寬 Tool Permission。  
+This does not relax tool permissions.
 
-Console:
+## Approval Request 建立失敗
 
-    http://localhost:9001
-
-## Download 404
-
-確認該 Document 由 v0.4 重新 Ingest，且 Qdrant Metadata 有 object_key。  
-Ensure the document was re-ingested under v0.4 and its Qdrant metadata contains object_key.
-
-## Redis Cache
+Approval Workflow 需要 Redis:
 
     docker compose exec redis redis-cli ping
 
@@ -72,25 +41,65 @@ Expected:
 
     PONG
 
-文件變更後 Tenant Revision 會增加，因此舊 Cache 不再 Hit。  
-Document mutations increment the tenant revision, so old cache entries stop matching.
+確認 / Check:
 
-## PostgreSQL Audit
+    AGENT_APPROVAL_TTL_SECONDS=600
 
-    docker compose exec postgres pg_isready -U rag -d rag
+## Approval 404
 
-Recent events:
+可能原因 / Possible reasons:
 
-    docker compose exec postgres psql -U rag -d rag       -c "select id,event_time,method,path,status_code,duration_ms from rag_audit_event order by id desc limit 10;"
+- TTL 已過期 / expired
+- 已被 Approve / Reject / consumed
+- action_id 錯誤 / incorrect action ID
 
-## LiteLLM / Ollama
+## Approval 403
 
-    docker compose logs litellm
-    docker compose exec ollama ollama list
+確認 / Check:
 
-Pull model:
+- Principal Tenant 與 Approval Tenant 相同
+- Principal 具有 Required Role
+- delete_document 需要 admin
 
-    docker compose exec ollama ollama pull llama3.2:3b
+## Agent Tool 被 rejected
+
+查看 / Inspect:
+
+    GET /api/v1/agent/tools
+
+Agent Trace 會包含 Tool、status=rejected 與 reason。  
+The agent trace includes the tool, rejected status, and reason.
+
+## Multi-hop 沒執行 / Multi-hop did not run
+
+Planner 只有在需要拆解問題時才輸出 subqueries，且受到：
+
+    AGENT_MAX_SUBQUERIES
+    AGENT_MAX_STEPS
+
+限制。  
+The planner emits subqueries only when needed and remains bounded by those settings.
+
+## Readiness
+
+    curl http://localhost:8000/ready
+
+Dependencies:
+
+- qdrant
+- redis
+- postgres
+- object_store
+
+## OIDC / Tenant / Object Store
+
+既有 v0.4 Troubleshooting 原則仍適用。  
+Existing v0.4 troubleshooting guidance still applies.
+
+- Verify OIDC issuer/audience/JWKS.
+- Verify /api/v1/me roles and tenant.
+- Verify MinIO endpoint and credentials.
+- Re-ingest legacy chunks that do not contain tenant_id.
 
 ## Helm Validation
 
@@ -98,7 +107,5 @@ Pull model:
     helm template test charts/enterprise-rag
 
 ## Offline Bundle
-
-Verify checksum:
 
     bash scripts/offline/verify-bundle.sh ./offline-bundle
