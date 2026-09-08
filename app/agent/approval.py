@@ -2,10 +2,10 @@ import json
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from app.agent.tools import authorize_tool
 from app.core.cache import get_cache_store
 from app.core.config import get_settings
 from app.core.security import Principal
-from app.agent.tools import authorize_tool
 
 
 def _approval_key(action_id: str) -> str:
@@ -59,6 +59,13 @@ async def get_approval_request(action_id: str) -> dict | None:
     return payload if isinstance(payload, dict) else None
 
 
+def validate_approval_request(payload: dict, principal: Principal) -> None:
+    if payload.get("tenant_id") != principal.tenant_id:
+        raise PermissionError("Approval request belongs to another tenant")
+    if not principal.has_role(str(payload.get("required_role", ""))):
+        raise PermissionError("Principal cannot approve this action")
+
+
 async def consume_approval_request(
     action_id: str,
     principal: Principal,
@@ -73,10 +80,24 @@ async def consume_approval_request(
         raise LookupError("Approval request not found or expired")
 
     payload = json.loads(raw)
-    if payload.get("tenant_id") != principal.tenant_id:
-        raise PermissionError("Approval request belongs to another tenant")
-    if not principal.has_role(str(payload.get("required_role", ""))):
-        raise PermissionError("Principal cannot approve this action")
+    validate_approval_request(payload, principal)
 
-    await cache.client.delete(key)
-    return payload
+    consumed = await cache.client.getdel(key)
+    if consumed is None:
+        raise LookupError("Approval request was already consumed")
+    consumed_payload = json.loads(consumed)
+    validate_approval_request(consumed_payload, principal)
+    return consumed_payload
+
+
+async def reject_approval_request(
+    action_id: str,
+    principal: Principal,
+) -> dict:
+    payload = await consume_approval_request(action_id, principal)
+    return {
+        **payload,
+        "status": "rejected",
+        "decided_by": principal.subject,
+        "decided_at": datetime.now(UTC).isoformat(),
+    }
