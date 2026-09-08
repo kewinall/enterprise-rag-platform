@@ -204,14 +204,14 @@ class AgentStateStore:
         pool = self._require_pool()
         async with pool.acquire() as conn, conn.transaction():
             row = await conn.fetchrow(
-                    """
-                    SELECT job_id, session_id, tenant_id, subject, roles, request
-                    FROM agent_job
-                    WHERE status='queued'
-                    ORDER BY created_at
-                    FOR UPDATE SKIP LOCKED
-                    LIMIT 1
-                    """
+                """
+                SELECT job_id, session_id, tenant_id, subject, roles, request
+                FROM agent_job
+                WHERE status='queued'
+                ORDER BY created_at
+                FOR UPDATE SKIP LOCKED
+                LIMIT 1
+                """
             )
             if row is None:
                 return None
