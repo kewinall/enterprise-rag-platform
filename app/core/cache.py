@@ -17,8 +17,10 @@ def make_rag_cache_key(
     mode: str,
     filters: dict | None,
     model: str,
+    tenant_id: str = "default",
 ) -> str:
     payload = {
+        "tenant_id": tenant_id,
         "question": question,
         "top_k": top_k,
         "mode": mode,
