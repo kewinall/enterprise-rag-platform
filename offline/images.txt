@@ -1,0 +1,8 @@
+qdrant/qdrant:v1.19.0
+ollama/ollama:0.33.3
+ghcr.io/berriai/litellm:v1.100.0
+postgres:17-alpine
+redis:8-alpine
+minio/minio:latest
+otel/opentelemetry-collector-contrib:0.160.0
+quay.io/keycloak/keycloak:26.3.3
