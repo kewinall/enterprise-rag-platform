@@ -21,7 +21,9 @@ from app.api.schemas import (
 )
 from app.core.cache import get_cache_store
 from app.core.config import get_settings
+from app.core.metrics import AGENT_RATE_LIMITED
 from app.core.object_store import get_object_store
+from app.core.rate_limit import get_agent_rate_limiter
 from app.core.security import (
     ROLE_ADMIN,
     ROLE_EDITOR,
@@ -278,11 +280,27 @@ async def agent_query(request: AgentQueryRequest, principal: PrincipalDep) -> di
     if looks_like_prompt_injection(request.question):
         raise HTTPException(status_code=400, detail="Potential prompt injection detected")
     try:
+        rate = await get_agent_rate_limiter().check(
+            principal.tenant_id,
+            principal.subject,
+        )
+        if not rate.allowed:
+            AGENT_RATE_LIMITED.inc()
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "message": "Agent rate limit exceeded",
+                    "limit": rate.limit,
+                    "retry_after_seconds": rate.retry_after_seconds,
+                },
+            )
         return await run_agent(
             request.question,
             principal,
             top_k=request.top_k,
             mode=request.mode,
+            session_id=request.session_id,
+            use_memory=request.use_memory,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
