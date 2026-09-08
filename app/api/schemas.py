@@ -1,4 +1,5 @@
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -40,7 +41,7 @@ class AgentQueryRequest(BaseModel):
     question: str = Field(min_length=2, max_length=4000)
     top_k: int = Field(default=5, ge=1, le=20)
     mode: Literal["vector", "hybrid"] = "hybrid"
-    session_id: str | None = Field(default=None, max_length=64)
+    session_id: UUID | None = None
     use_memory: bool = True
 
 
@@ -64,7 +65,7 @@ class AgentJobRequest(BaseModel):
     question: str = Field(min_length=2, max_length=4000)
     top_k: int = Field(default=5, ge=1, le=20)
     mode: Literal["vector", "hybrid"] = "hybrid"
-    session_id: str | None = Field(default=None, max_length=64)
+    session_id: UUID | None = None
     use_memory: bool = True
 
 
