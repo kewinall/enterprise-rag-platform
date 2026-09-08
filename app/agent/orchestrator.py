@@ -1,15 +1,26 @@
+from time import perf_counter
 from typing import Any
 
 from app.agent.approval import create_approval_request
 from app.agent.critic import review_answer, review_context
 from app.agent.models import AgentPlan, ToolCall
 from app.agent.planner import plan_query
+from app.agent.state import get_agent_state_store
 from app.agent.tools import (
     ToolApprovalRequired,
     ToolPermissionError,
     execute_tool,
 )
+from app.core.budget import BudgetExceeded, BudgetTracker, budget_scope
 from app.core.config import get_settings
+from app.core.metrics import (
+    AGENT_BUDGET_EXCEEDED,
+    AGENT_ESTIMATED_COST,
+    AGENT_LATENCY,
+    AGENT_LLM_TOKENS,
+    AGENT_RUNS,
+    AGENT_TOOL_CALLS,
+)
 from app.core.security import Principal
 from app.core.telemetry import get_tracer
 from app.rag.llm import chat_completion, generate_answer
@@ -50,23 +61,37 @@ def _tool_contexts(result: dict) -> list[str]:
                 f"content_type={item.get('content_type')}"
             )
         ]
+    if tool_name == "get_platform_status":
+        return [
+            (
+                f"Platform status: documents={result.get('documents')}, "
+                f"chunks={result.get('chunks')}, "
+                f"content_types={result.get('content_types')}"
+            )
+        ]
+    if tool_name == "get_recent_audit_events":
+        return [
+            (
+                f"Audit event: {item.get('method')} {item.get('path')} "
+                f"status={item.get('status_code')} duration_ms={item.get('duration_ms')}"
+            )
+            for item in result.get("events", [])
+        ]
     return []
 
 
 def _citations(results: list[dict]) -> list[dict]:
-    citations = []
-    for index, item in enumerate(results, start=1):
-        citations.append(
-            {
-                "id": index,
-                "document_id": item.get("document_id"),
-                "source": item.get("source"),
-                "chunk_id": item.get("chunk_id"),
-                "page": item.get("page"),
-                "section": item.get("section"),
-            }
-        )
-    return citations
+    return [
+        {
+            "id": index,
+            "document_id": item.get("document_id"),
+            "source": item.get("source"),
+            "chunk_id": item.get("chunk_id"),
+            "page": item.get("page"),
+            "section": item.get("section"),
+        }
+        for index, item in enumerate(results, start=1)
+    ]
 
 
 async def _revise_answer(
@@ -97,22 +122,23 @@ async def _revise_answer(
     )
 
 
-async def run_agent(
+async def _run_agent_core(
     question: str,
     principal: Principal,
     *,
-    top_k: int = 5,
-    mode: str = "hybrid",
+    top_k: int,
+    mode: str,
+    seed_contexts: list[str] | None = None,
 ) -> dict:
     settings = get_settings()
-    if not settings.agent_enabled:
-        raise RuntimeError("Agentic RAG is disabled")
-
     trace: list[dict[str, Any]] = []
     retrieval_results: list[dict] = []
-    contexts: list[str] = []
+    contexts: list[str] = list(seed_contexts or [])
     approvals: list[dict] = []
     steps = 0
+
+    if seed_contexts:
+        trace.append({"step": "memory", "status": "loaded", "items": len(seed_contexts)})
 
     with tracer.start_as_current_span("agent.run") as span:
         span.set_attribute("agent.tenant_id", principal.tenant_id)
@@ -156,18 +182,16 @@ async def run_agent(
             )
         steps += 1
 
-        tool_calls = list(plan.tool_calls)
-        if not tool_calls:
-            tool_calls = [
-                ToolCall(
-                    name="search_knowledge",
-                    arguments={
-                        "query": plan.rewritten_query,
-                        "top_k": top_k,
-                        "mode": mode,
-                    },
-                )
-            ]
+        tool_calls = list(plan.tool_calls) or [
+            ToolCall(
+                name="search_knowledge",
+                arguments={
+                    "query": plan.rewritten_query,
+                    "top_k": top_k,
+                    "mode": mode,
+                },
+            )
+        ]
 
         for call in tool_calls[: settings.agent_max_tool_calls]:
             if steps >= settings.agent_max_steps:
@@ -177,13 +201,8 @@ async def run_agent(
                 arguments.setdefault("query", plan.rewritten_query)
                 arguments.setdefault("top_k", top_k)
                 arguments.setdefault("mode", mode)
-
             try:
-                result = await execute_tool(
-                    principal,
-                    call.name,
-                    arguments,
-                )
+                result = await execute_tool(principal, call.name, arguments)
             except ToolApprovalRequired:
                 approval = await create_approval_request(
                     principal,
@@ -191,6 +210,7 @@ async def run_agent(
                     arguments,
                 )
                 approvals.append(approval)
+                AGENT_TOOL_CALLS.labels(call.name, "approval_required").inc()
                 trace.append(
                     {
                         "step": "tool",
@@ -200,6 +220,7 @@ async def run_agent(
                     }
                 )
             except (ToolPermissionError, ValueError, LookupError, KeyError) as exc:
+                AGENT_TOOL_CALLS.labels(call.name, "rejected").inc()
                 trace.append(
                     {
                         "step": "tool",
@@ -209,12 +230,9 @@ async def run_agent(
                     }
                 )
             else:
+                AGENT_TOOL_CALLS.labels(call.name, "completed").inc()
                 trace.append(
-                    {
-                        "step": "tool",
-                        "tool": call.name,
-                        "status": "completed",
-                    }
+                    {"step": "tool", "tool": call.name, "status": "completed"}
                 )
                 contexts.extend(_tool_contexts(result))
                 if call.name == "search_knowledge":
@@ -246,6 +264,7 @@ async def run_agent(
                 "search_knowledge",
                 {"query": subquery, "top_k": top_k, "mode": mode},
             )
+            AGENT_TOOL_CALLS.labels("search_knowledge", "completed").inc()
             contexts.extend(_tool_contexts(result))
             retrieval_results = merge_retrieval_results(
                 retrieval_results,
@@ -264,13 +283,9 @@ async def run_agent(
         if contexts and steps < settings.agent_max_steps:
             try:
                 context_review = await review_context(question, contexts)
-            except ValueError as exc:
+            except (TypeError, ValueError) as exc:
                 trace.append(
-                    {
-                        "step": "context_critic",
-                        "status": "degraded",
-                        "reason": str(exc),
-                    }
+                    {"step": "context_critic", "status": "degraded", "reason": str(exc)}
                 )
             else:
                 trace.append(
@@ -299,6 +314,7 @@ async def run_agent(
                     "mode": mode,
                 },
             )
+            AGENT_TOOL_CALLS.labels("search_knowledge", "completed").inc()
             contexts.extend(_tool_contexts(result))
             retrieval_results = merge_retrieval_results(
                 retrieval_results,
@@ -335,18 +351,15 @@ async def run_agent(
         )
         answer = await generate_answer(question, numbered_context)
         trace.append({"step": "generate", "status": "completed"})
+        steps += 1
 
         answer_review = None
         if steps < settings.agent_max_steps:
             try:
                 answer_review = await review_answer(question, answer, contexts)
-            except ValueError as exc:
+            except (TypeError, ValueError) as exc:
                 trace.append(
-                    {
-                        "step": "answer_critic",
-                        "status": "degraded",
-                        "reason": str(exc),
-                    }
+                    {"step": "answer_critic", "status": "degraded", "reason": str(exc)}
                 )
             else:
                 trace.append(
@@ -379,7 +392,6 @@ async def run_agent(
 
         span.set_attribute("agent.steps", steps)
         span.set_attribute("agent.retrieval_results", len(retrieval_results))
-
         return {
             "status": "completed",
             "answer": answer,
@@ -402,3 +414,78 @@ async def run_agent(
             ),
             "trace": trace,
         }
+
+
+async def run_agent(
+    question: str,
+    principal: Principal,
+    *,
+    top_k: int = 5,
+    mode: str = "hybrid",
+    session_id: str | None = None,
+    use_memory: bool = True,
+) -> dict:
+    settings = get_settings()
+    if not settings.agent_enabled:
+        raise RuntimeError("Agentic RAG is disabled")
+
+    started = perf_counter()
+    tracker = BudgetTracker(
+        max_tokens=settings.agent_budget_max_tokens,
+        max_cost_usd=settings.agent_budget_max_cost_usd,
+        input_cost_per_1k=settings.agent_input_cost_per_1k,
+        output_cost_per_1k=settings.agent_output_cost_per_1k,
+    )
+    state_store = get_agent_state_store()
+    seed_contexts: list[str] = []
+
+    if session_id is not None:
+        session = await state_store.get_session(session_id, principal.tenant_id)
+        if session is None:
+            raise LookupError("Agent session not found")
+        if use_memory:
+            memories = await state_store.list_memory(session_id, principal.tenant_id)
+            seed_contexts = [
+                f"User-approved session memory [{item['memory_key']}]: {item['memory_value']}"
+                for item in memories
+            ]
+
+    try:
+        with budget_scope(tracker):
+            result = await _run_agent_core(
+                question,
+                principal,
+                top_k=top_k,
+                mode=mode,
+                seed_contexts=seed_contexts,
+            )
+    except BudgetExceeded as exc:
+        AGENT_BUDGET_EXCEEDED.inc()
+        result = {
+            "status": "budget_exceeded",
+            "answer": None,
+            "citations": [],
+            "trace": [{"step": "budget", "status": "exceeded", "reason": str(exc)}],
+        }
+
+    budget = tracker.snapshot()
+    result["budget"] = budget
+    result["session_id"] = session_id
+
+    if session_id is not None:
+        checkpoint = await state_store.save_checkpoint(
+            session_id,
+            principal.tenant_id,
+            {
+                "question": question,
+                "result": result,
+            },
+        )
+        result["checkpoint_id"] = checkpoint["checkpoint_id"]
+
+    AGENT_RUNS.labels(str(result.get("status", "unknown"))).inc()
+    AGENT_LLM_TOKENS.labels("prompt").inc(budget["prompt_tokens"])
+    AGENT_LLM_TOKENS.labels("completion").inc(budget["completion_tokens"])
+    AGENT_ESTIMATED_COST.inc(budget["estimated_cost_usd"])
+    AGENT_LATENCY.observe(perf_counter() - started)
+    return result
