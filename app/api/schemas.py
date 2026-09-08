@@ -40,9 +40,36 @@ class AgentQueryRequest(BaseModel):
     question: str = Field(min_length=2, max_length=4000)
     top_k: int = Field(default=5, ge=1, le=20)
     mode: Literal["vector", "hybrid"] = "hybrid"
+    session_id: str | None = Field(default=None, max_length=64)
+    use_memory: bool = True
 
 
 class AgentEvaluationRequest(BaseModel):
     result: dict
     expected_tools: list[str] = Field(default_factory=list, max_length=20)
     expected_status: str | None = Field(default=None, max_length=64)
+
+
+class AgentSessionCreateRequest(BaseModel):
+    title: str | None = Field(default=None, max_length=200)
+
+
+class AgentMemoryRequest(BaseModel):
+    key: str = Field(min_length=1, max_length=128)
+    value: str = Field(min_length=1, max_length=4000)
+    retention_days: int | None = Field(default=None, ge=1, le=365)
+
+
+class AgentJobRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=4000)
+    top_k: int = Field(default=5, ge=1, le=20)
+    mode: Literal["vector", "hybrid"] = "hybrid"
+    session_id: str | None = Field(default=None, max_length=64)
+    use_memory: bool = True
+
+
+class MCPRequest(BaseModel):
+    jsonrpc: Literal["2.0"] = "2.0"
+    id: str | int | None = None
+    method: str = Field(min_length=1, max_length=128)
+    params: dict = Field(default_factory=dict)
