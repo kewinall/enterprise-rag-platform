@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     s3_access_key_id: str = "minioadmin"
     s3_secret_access_key: str = "minio-change-me"
     s3_secure: bool = False
+    object_store_startup_retries: int = 10
 
     llm_base_url: str = "http://localhost:4000/v1"
     llm_api_key: str = "sk-change-me"
