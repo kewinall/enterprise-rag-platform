@@ -8,7 +8,9 @@ from app.ingestion.parsers import ParsedSection
 class Chunk:
     chunk_id: str
     document_id: str
+    tenant_id: str
     source: str
+    object_key: str | None
     text: str
     ordinal: int
     page: int | None
@@ -16,9 +18,10 @@ class Chunk:
     content_type: str
 
 
-def create_document_id(source: str) -> str:
-    normalized = source.strip() or "upload"
-    return str(uuid5(NAMESPACE_URL, normalized))
+def create_document_id(source: str, tenant_id: str = "default") -> str:
+    normalized_source = source.strip() or "upload"
+    normalized_tenant = tenant_id.strip() or "default"
+    return str(uuid5(NAMESPACE_URL, f"{normalized_tenant}:{normalized_source}"))
 
 
 def split_sections(
@@ -27,6 +30,8 @@ def split_sections(
     document_id: str,
     chunk_size: int,
     overlap: int,
+    tenant_id: str = "default",
+    object_key: str | None = None,
 ) -> list[Chunk]:
     if chunk_size <= 0 or overlap < 0 or overlap >= chunk_size:
         raise ValueError("chunk_size must be > 0 and 0 <= overlap < chunk_size")
@@ -47,7 +52,7 @@ def split_sections(
                 uuid5(
                     NAMESPACE_URL,
                     (
-                        f"{document_id}:{ordinal}:{section.page}:"
+                        f"{tenant_id}:{document_id}:{ordinal}:{section.page}:"
                         f"{section.section}:{piece}"
                     ),
                 )
@@ -56,7 +61,9 @@ def split_sections(
                 Chunk(
                     chunk_id=chunk_id,
                     document_id=document_id,
+                    tenant_id=tenant_id,
                     source=source,
+                    object_key=object_key,
                     text=piece,
                     ordinal=ordinal,
                     page=section.page,
@@ -78,12 +85,16 @@ def split_text(
     chunk_size: int,
     overlap: int,
     document_id: str | None = None,
+    tenant_id: str = "default",
+    object_key: str | None = None,
 ) -> list[Chunk]:
-    resolved_document_id = document_id or create_document_id(source)
+    resolved_document_id = document_id or create_document_id(source, tenant_id)
     return split_sections(
         sections=[ParsedSection(text=text)],
         source=source,
         document_id=resolved_document_id,
         chunk_size=chunk_size,
         overlap=overlap,
+        tenant_id=tenant_id,
+        object_key=object_key,
     )
