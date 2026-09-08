@@ -1,68 +1,104 @@
 # 故障排除 / Troubleshooting
 
-## API Not Ready
-
-確認 Dependency State / Check dependency state:
+## Readiness
 
     curl http://localhost:8000/ready
 
-Qdrant:
+回傳 Dependencies / returns dependencies:
 
-    curl http://localhost:6333/collections
+- qdrant
+- redis
+- postgres
+- object_store
 
-## LiteLLM / LLM Request 失敗
+## OIDC Token 401
 
-確認 LiteLLM Container / Check LiteLLM:
+確認 / Check:
 
-    docker compose logs litellm
+- AUTH_MODE=oidc
+- OIDC_ISSUER 與 Token iss 相同 / matches token iss
+- OIDC_AUDIENCE 存在於 aud / exists in aud
+- OIDC_JWKS_URL API Container 可連線 / reachable from API container
+- Token 尚未過期 / token not expired
 
-確認 Ollama Model / Check Ollama model:
+Keycloak logs:
 
-    docker compose exec ollama ollama list
+    docker compose logs keycloak
 
-若不存在 / Pull if missing:
+## 403 Role Required
 
-    docker compose exec ollama ollama pull llama3.2:3b
+查看 Principal:
 
-## Redis 顯示 degraded / Redis degraded
+    GET /api/v1/me
+
+確認 Token Role Claim 包含 viewer、editor 或 admin。  
+Confirm the role claim contains viewer, editor, or admin.
+
+## Tenant 看不到文件 / Tenant cannot see documents
+
+**繁體中文**  
+v0.4 只會查詢與 Principal tenant_id 相同的 Chunk。v0.3 升級後的 Legacy Chunk 沒有 tenant_id，需要重新 Ingest。
+
+**English**  
+v0.4 only retrieves chunks matching the principal tenant_id. Legacy v0.3 chunks have no tenant_id and must be re-ingested.
+
+## Object Store unavailable
+
+MinIO:
+
+    docker compose logs minio
+
+確認 / Check:
+
+    S3_ENDPOINT_URL
+    S3_BUCKET
+    S3_ACCESS_KEY_ID
+    S3_SECRET_ACCESS_KEY
+
+Console:
+
+    http://localhost:9001
+
+## Download 404
+
+確認該 Document 由 v0.4 重新 Ingest，且 Qdrant Metadata 有 object_key。  
+Ensure the document was re-ingested under v0.4 and its Qdrant metadata contains object_key.
+
+## Redis Cache
 
     docker compose exec redis redis-cli ping
 
-預期 / Expected:
+Expected:
 
     PONG
 
-## PostgreSQL Audit 顯示 degraded / PostgreSQL audit degraded
+文件變更後 Tenant Revision 會增加，因此舊 Cache 不再 Hit。  
+Document mutations increment the tenant revision, so old cache entries stop matching.
+
+## PostgreSQL Audit
 
     docker compose exec postgres pg_isready -U rag -d rag
 
-查看 Audit Table / Inspect audit rows:
+Recent events:
 
     docker compose exec postgres psql -U rag -d rag       -c "select id,event_time,method,path,status_code,duration_ms from rag_audit_event order by id desc limit 10;"
 
-## Trace 沒有輸出 / No trace output
+## LiteLLM / Ollama
 
-檢查 Collector / Check collector:
+    docker compose logs litellm
+    docker compose exec ollama ollama list
 
-    docker compose logs otel-collector
+Pull model:
 
-確認 .env:
+    docker compose exec ollama ollama pull llama3.2:3b
 
-    OTEL_ENABLED=true
-    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces
+## Helm Validation
 
-## Cache 不生效 / Cache not working
+    helm lint charts/enterprise-rag
+    helm template test charts/enterprise-rag
 
-**繁體中文**  
-相同 Question、Top-K、Mode、Filter、Model 才會命中相同 Cache Key。Response 的 cache.hit 可確認是否 Hit。
+## Offline Bundle
 
-**English**  
-The question, top-k, mode, filters, and model must match to hit the same cache key. Check cache.hit in the query response.
+Verify checksum:
 
-## 第一次 Request 很慢 / Slow first request
-
-**繁體中文**  
-Sentence-Transformer Model 採 Lazy Load，第一次執行可能下載 Model。Offline Environment 應預先準備 Model Artifact。
-
-**English**  
-Sentence-transformer models are loaded lazily and may be downloaded on first use. Pre-stage model artifacts in offline environments.
+    bash scripts/offline/verify-bundle.sh ./offline-bundle
