@@ -10,7 +10,10 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from prometheus_client import make_asgi_app
 
+from app.agent.jobs import get_agent_job_worker
+from app.agent.state import get_agent_state_store
 from app.api.routes import router
+from app.api.v06_routes import mcp_router, v06_router
 from app.core.audit import get_audit_store
 from app.core.cache import get_cache_store
 from app.core.config import get_settings
@@ -31,10 +34,16 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     cache = get_cache_store()
     audit = get_audit_store()
     object_store = get_object_store()
+    agent_state = get_agent_state_store()
+    agent_worker = get_agent_job_worker()
     await cache.start()
     await audit.start()
     await object_store.start()
+    await agent_state.start()
+    await agent_worker.start()
     yield
+    await agent_worker.stop()
+    await agent_state.close()
     await cache.close()
     await audit.close()
 
@@ -45,6 +54,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(router)
+app.include_router(v06_router)
+app.include_router(mcp_router)
 app.mount("/metrics", make_asgi_app())
 
 
@@ -99,6 +110,11 @@ async def ready() -> dict:
     dependencies = {
         "redis": "ready" if get_cache_store().client is not None else "degraded",
         "postgres": "ready" if get_audit_store().pool is not None else "degraded",
+        "agent_state": (
+            "ready"
+            if get_agent_state_store().pool is not None
+            else ("disabled" if not settings.agent_state_enabled else "degraded")
+        ),
         "object_store": (
             "ready"
             if get_object_store().available
