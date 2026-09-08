@@ -97,12 +97,9 @@ def _citations(results: list[dict]) -> list[dict]:
 async def _revise_answer(
     question: str,
     answer: str,
-    contexts: list[str],
+    context_text: str,
     instruction: str,
 ) -> str:
-    context_text = "\n\n".join(
-        f"[{index}] {text}" for index, text in enumerate(contexts, start=1)
-    )
     system = (
         "You revise enterprise RAG answers. Use only the supplied contexts. "
         "Do not add unsupported facts. Preserve source citations such as [1]."
@@ -346,10 +343,27 @@ async def _run_agent_core(
                 "trace": trace,
             }
 
-        numbered_context = "\n\n".join(
-            f"[{index}] {text}" for index, text in enumerate(contexts, start=1)
-        )
-        answer = await generate_answer(question, numbered_context)
+        retrieved_texts = [
+            item["text"] for item in retrieval_results if item.get("text")
+        ]
+        retrieved_set = set(retrieved_texts)
+        auxiliary_contexts = [item for item in contexts if item not in retrieved_set]
+        context_parts = []
+        if auxiliary_contexts:
+            context_parts.append(
+                "Auxiliary context (not citation-indexed):\n"
+                + "\n".join(f"- {item}" for item in auxiliary_contexts)
+            )
+        if retrieved_texts:
+            context_parts.append(
+                "Citable retrieved evidence:\n"
+                + "\n\n".join(
+                    f"[{index}] {text}"
+                    for index, text in enumerate(retrieved_texts, start=1)
+                )
+            )
+        generation_context = "\n\n".join(context_parts)
+        answer = await generate_answer(question, generation_context)
         trace.append({"step": "generate", "status": "completed"})
         steps += 1
 
@@ -384,7 +398,7 @@ async def _run_agent_core(
             answer = await _revise_answer(
                 question,
                 answer,
-                contexts,
+                generation_context,
                 answer_review.revision_instruction,
             )
             trace.append({"step": "revision", "status": "completed"})
