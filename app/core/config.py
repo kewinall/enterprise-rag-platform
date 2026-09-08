@@ -1,20 +1,38 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = "Enterprise RAG Platform"
-    app_version: str = "0.3.0"
+    app_version: str = "0.4.0"
     app_env: str = "dev"
     log_level: str = "INFO"
+
+    auth_mode: Literal["api_key", "oidc"] = "api_key"
     rag_api_key: str = "change-me"
+    default_tenant_id: str = "demo"
+    oidc_issuer: str = "http://localhost:8080/realms/enterprise-rag"
+    oidc_audience: str = "enterprise-rag-api"
+    oidc_jwks_url: str = "http://localhost:8080/realms/enterprise-rag/protocol/openid-connect/certs"
+    oidc_roles_claim: str = "realm_access.roles"
+    oidc_tenant_claim: str = "tenant_id"
 
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "enterprise_rag"
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     enable_reranker: bool = False
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+    object_store_enabled: bool = True
+    s3_endpoint_url: str = "http://localhost:9000"
+    s3_region: str = "us-east-1"
+    s3_bucket: str = "enterprise-rag"
+    s3_access_key_id: str = "minioadmin"
+    s3_secret_access_key: str = "minio-change-me"
+    s3_secure: bool = False
+    object_store_startup_retries: int = 10
 
     llm_base_url: str = "http://localhost:4000/v1"
     llm_api_key: str = "sk-change-me"

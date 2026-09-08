@@ -17,8 +17,12 @@ def make_rag_cache_key(
     mode: str,
     filters: dict | None,
     model: str,
+    tenant_id: str = "default",
+    tenant_revision: int = 0,
 ) -> str:
     payload = {
+        "tenant_id": tenant_id,
+        "tenant_revision": tenant_revision,
         "question": question,
         "top_k": top_k,
         "mode": mode,
@@ -82,6 +86,27 @@ class CacheStore:
             )
         except (RedisError, OSError) as exc:
             logger.warning("Redis SET failed: %s", exc)
+
+    async def get_tenant_revision(self, tenant_id: str) -> int:
+        if self.client is None:
+            return 0
+        key = f"rag:tenant-revision:{tenant_id}"
+        try:
+            value = await self.client.get(key)
+            return int(value) if value is not None else 0
+        except (RedisError, OSError, ValueError) as exc:
+            logger.warning("Redis tenant revision read failed: %s", exc)
+            return 0
+
+    async def bump_tenant_revision(self, tenant_id: str) -> int:
+        if self.client is None:
+            return 0
+        key = f"rag:tenant-revision:{tenant_id}"
+        try:
+            return int(await self.client.incr(key))
+        except (RedisError, OSError, ValueError) as exc:
+            logger.warning("Redis tenant revision update failed: %s", exc)
+            return 0
 
 
 @lru_cache

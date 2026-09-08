@@ -10,6 +10,7 @@ tracer = get_tracer(__name__)
 
 async def answer_question(
     question: str,
+    tenant_id: str,
     top_k: int | None = None,
     filters: PayloadFilter | None = None,
     mode: str = "hybrid",
@@ -17,13 +18,17 @@ async def answer_question(
 ) -> dict:
     settings = get_settings()
     limit = top_k or settings.final_top_k
+    scoped_filters = {**(filters or {}), "tenant_id": tenant_id}
     cache = get_cache_store()
+    tenant_revision = await cache.get_tenant_revision(tenant_id)
     cache_key = make_rag_cache_key(
         question=question,
         top_k=limit,
         mode=mode,
-        filters=filters,
+        filters=scoped_filters,
         model=settings.llm_model,
+        tenant_id=tenant_id,
+        tenant_revision=tenant_revision,
     )
 
     if use_cache:
@@ -35,10 +40,11 @@ async def answer_question(
     with tracer.start_as_current_span("rag.answer_question") as span:
         span.set_attribute("rag.retrieval.mode", mode)
         span.set_attribute("rag.retrieval.top_k", limit)
+        span.set_attribute("rag.tenant_id", tenant_id)
         results = hybrid_search(
             question,
             final_top_k=limit,
-            filters=filters,
+            filters=scoped_filters,
             mode=mode,
         )
 
@@ -72,7 +78,11 @@ async def answer_question(
                 "mode": mode,
                 "filters": filters or {},
             },
-            "cache": {"hit": False, "ttl_seconds": settings.cache_ttl_seconds},
+            "cache": {
+                "hit": False,
+                "ttl_seconds": settings.cache_ttl_seconds,
+                "tenant_revision": tenant_revision,
+            },
         }
         span.set_attribute("rag.retrieval.result_count", len(results))
 

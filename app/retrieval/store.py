@@ -44,7 +44,9 @@ class VectorStore:
         return {
             "chunk_id": chunk_id,
             "document_id": payload.get("document_id", "unknown"),
+            "tenant_id": payload.get("tenant_id", "unknown"),
             "source": payload.get("source", "unknown"),
+            "object_key": payload.get("object_key"),
             "text": payload.get("text", ""),
             "ordinal": payload.get("ordinal"),
             "page": payload.get("page"),
@@ -116,9 +118,11 @@ class VectorStore:
 
         return result
 
-    def count_document(self, document_id: str) -> int:
+    def count_document(self, document_id: str, tenant_id: str) -> int:
         self.ensure_collection()
-        query_filter = build_qdrant_filter({"document_id": document_id})
+        query_filter = build_qdrant_filter(
+            {"document_id": document_id, "tenant_id": tenant_id}
+        )
         result = self.client.count(
             collection_name=self.collection,
             count_filter=query_filter,
@@ -126,11 +130,13 @@ class VectorStore:
         )
         return int(result.count)
 
-    def delete_document(self, document_id: str) -> int:
-        count = self.count_document(document_id)
+    def delete_document(self, document_id: str, tenant_id: str) -> int:
+        count = self.count_document(document_id, tenant_id)
         if count == 0:
             return 0
-        query_filter = build_qdrant_filter({"document_id": document_id})
+        query_filter = build_qdrant_filter(
+            {"document_id": document_id, "tenant_id": tenant_id}
+        )
         if query_filter is None:
             return 0
         self.client.delete(
@@ -140,15 +146,24 @@ class VectorStore:
         )
         return count
 
-    def list_document_summaries(self) -> list[dict]:
+    def get_document_object_key(self, document_id: str, tenant_id: str) -> str | None:
+        chunks = self.list_chunks(
+            limit=1,
+            filters={"document_id": document_id, "tenant_id": tenant_id},
+        )
+        return chunks[0].get("object_key") if chunks else None
+
+    def list_document_summaries(self, tenant_id: str) -> list[dict]:
         summaries: dict[str, dict] = {}
-        for item in self.list_chunks():
+        for item in self.list_chunks(filters={"tenant_id": tenant_id}):
             document_id = item["document_id"]
             summary = summaries.setdefault(
                 document_id,
                 {
                     "document_id": document_id,
+                    "tenant_id": tenant_id,
                     "source": item["source"],
+                    "object_key": item.get("object_key"),
                     "content_type": item["content_type"],
                     "chunks": 0,
                     "pages": set(),

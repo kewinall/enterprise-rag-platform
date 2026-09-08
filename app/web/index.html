@@ -18,6 +18,8 @@
     .status { white-space:pre-wrap; margin-top:10px; }
     .answer { white-space:pre-wrap; padding:12px; border-left:4px solid currentColor; margin-top:12px; }
     .citation { border-top:1px solid #8885; padding:8px 0; font-size:.92rem; }
+    .doc { margin-bottom:10px; }
+    .doc button { width:auto; margin-left:8px; padding:4px 8px; }
     ul { padding-left:22px; }
   </style>
 </head>
@@ -25,29 +27,42 @@
 <header>
   <h1>Enterprise RAG Platform</h1>
   <p>企業級 RAG 展示介面 / Enterprise RAG demonstration UI</p>
-  <p class="muted">v0.3 · Upload · Chat · Citations · Document lifecycle</p>
+  <p class="muted">v0.4 · OIDC/RBAC · Multi-tenant · MinIO/S3 · RAG Chat</p>
 </header>
 
-<div class="card">
-  <label for="apiKey">API Key / API 金鑰</label>
-  <input id="apiKey" type="password" value="change-me" autocomplete="off">
-  <p class="muted">只保存在目前瀏覽器 Session / Stored only in the current browser session.</p>
-</div>
-
 <div class="grid">
+  <section class="card">
+    <h2>Authentication / 驗證</h2>
+    <label for="authType">Auth Mode</label>
+    <select id="authType">
+      <option value="api_key">API Key</option>
+      <option value="bearer">OIDC Bearer Token</option>
+    </select>
+
+    <label for="credential">Credential / 憑證</label>
+    <input id="credential" type="password" value="change-me" autocomplete="off">
+
+    <label for="tenantId">Tenant ID（API Key Mode）</label>
+    <input id="tenantId" value="demo" autocomplete="off">
+
+    <button id="whoami">確認身份 / Who am I?</button>
+    <div id="identityStatus" class="status muted"></div>
+    <p class="muted">僅保存於目前 Browser Session / Stored only in the current browser session.</p>
+  </section>
+
   <section class="card">
     <h2>文件匯入 / Document upload</h2>
     <input id="files" type="file" multiple accept=".pdf,.md,.txt,.csv">
     <button id="uploadButton">批次匯入 / Batch ingest</button>
     <div id="uploadStatus" class="status muted"></div>
   </section>
-
-  <section class="card">
-    <h2>已索引文件 / Indexed documents</h2>
-    <button id="refreshDocuments">重新整理 / Refresh</button>
-    <ul id="documents"></ul>
-  </section>
 </div>
+
+<section class="card" style="margin-top:18px">
+  <h2>已索引文件 / Indexed documents</h2>
+  <button id="refreshDocuments">重新整理 / Refresh</button>
+  <ul id="documents"></ul>
+</section>
 
 <section class="card" style="margin-top:18px">
   <h2>RAG Chat / RAG 問答</h2>
@@ -65,20 +80,36 @@
 </section>
 
 <script>
-const apiKey = document.getElementById("apiKey");
+const authType = document.getElementById("authType");
+const credential = document.getElementById("credential");
+const tenantId = document.getElementById("tenantId");
+const identityStatus = document.getElementById("identityStatus");
 const uploadStatus = document.getElementById("uploadStatus");
 const queryStatus = document.getElementById("queryStatus");
 const answer = document.getElementById("answer");
 const citations = document.getElementById("citations");
 const documents = document.getElementById("documents");
 
-apiKey.value = sessionStorage.getItem("rag-api-key") || "change-me";
-apiKey.addEventListener("change", function () {
-  sessionStorage.setItem("rag-api-key", apiKey.value);
+authType.value = sessionStorage.getItem("rag-auth-type") || "api_key";
+credential.value = sessionStorage.getItem("rag-credential") || "change-me";
+tenantId.value = sessionStorage.getItem("rag-tenant-id") || "demo";
+
+[authType, credential, tenantId].forEach(function (element) {
+  element.addEventListener("change", function () {
+    sessionStorage.setItem("rag-auth-type", authType.value);
+    sessionStorage.setItem("rag-credential", credential.value);
+    sessionStorage.setItem("rag-tenant-id", tenantId.value);
+  });
 });
 
 function headers(json) {
-  const h = {"X-API-Key": apiKey.value};
+  const h = {};
+  if (authType.value === "bearer") {
+    h.Authorization = "Bearer " + credential.value;
+  } else {
+    h["X-API-Key"] = credential.value;
+    h["X-Tenant-ID"] = tenantId.value;
+  }
   if (json) h["Content-Type"] = "application/json";
   return h;
 }
@@ -92,6 +123,35 @@ async function readJson(response) {
   return payload;
 }
 
+async function whoAmI() {
+  try {
+    const response = await fetch("/api/v1/me", {headers: headers(false)});
+    const payload = await readJson(response);
+    identityStatus.textContent =
+      "subject=" + payload.subject +
+      " · tenant=" + payload.tenant_id +
+      " · roles=" + payload.roles.join(",") +
+      " · auth=" + payload.auth_mode;
+  } catch (error) {
+    identityStatus.textContent = "Error: " + error.message;
+  }
+}
+
+document.getElementById("whoami").addEventListener("click", whoAmI);
+
+async function downloadDocument(documentId) {
+  try {
+    const response = await fetch(
+      "/api/v1/documents/" + encodeURIComponent(documentId) + "/download",
+      {headers: headers(false)}
+    );
+    const payload = await readJson(response);
+    window.open(payload.download_url, "_blank", "noopener");
+  } catch (error) {
+    identityStatus.textContent = "Download error: " + error.message;
+  }
+}
+
 async function refreshDocuments() {
   documents.replaceChildren();
   try {
@@ -99,7 +159,19 @@ async function refreshDocuments() {
     const payload = await readJson(response);
     payload.documents.forEach(function (doc) {
       const li = document.createElement("li");
-      li.textContent = doc.source + " · chunks=" + doc.chunks;
+      li.className = "doc";
+      const label = document.createElement("span");
+      label.textContent =
+        doc.source + " · tenant=" + doc.tenant_id + " · chunks=" + doc.chunks;
+      li.appendChild(label);
+      if (doc.object_key) {
+        const button = document.createElement("button");
+        button.textContent = "Download";
+        button.addEventListener("click", function () {
+          downloadDocument(doc.document_id);
+        });
+        li.appendChild(button);
+      }
       documents.appendChild(li);
     });
     if (!payload.count) {
@@ -164,7 +236,8 @@ document.getElementById("askButton").addEventListener("click", async function ()
     const payload = await readJson(response);
     answer.textContent = payload.answer;
     const cacheState = payload.cache && payload.cache.hit ? "HIT" : "MISS";
-    queryStatus.textContent = "Retrieval=" + payload.retrieval.mode + " · Cache=" + cacheState;
+    queryStatus.textContent =
+      "Retrieval=" + payload.retrieval.mode + " · Cache=" + cacheState;
 
     payload.citations.forEach(function (item) {
       const div = document.createElement("div");
@@ -180,6 +253,7 @@ document.getElementById("askButton").addEventListener("click", async function ()
   }
 });
 
+whoAmI();
 refreshDocuments();
 </script>
 </body>
