@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "Enterprise RAG Platform"
-    app_version: str = "0.4.0"
+    app_version: str = "0.5.0"
     app_env: str = "dev"
     log_level: str = "INFO"
 
@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     evaluator_llm_base_url: str | None = None
     evaluator_llm_api_key: str | None = None
     evaluator_llm_model: str | None = None
+
+    agent_enabled: bool = True
+    agent_max_steps: int = 6
+    agent_max_subqueries: int = 3
+    agent_max_tool_calls: int = 6
+    agent_approval_ttl_seconds: int = 600
+    agent_enable_answer_revision: bool = True
 
     chunk_size: int = 900
     chunk_overlap: int = 150
