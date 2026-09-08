@@ -1,27 +1,27 @@
-# Troubleshooting
+# 故障排除 / Troubleshooting
 
-## API is not ready
+## API 顯示 Not Ready / API is not ready
 
-Check Qdrant connectivity:
+**繁體中文**：先確認 Qdrant 是否可連線。  
+**English**: Check Qdrant connectivity first.
 
-```bash
-curl http://localhost:6333/collections
-```
+    curl http://localhost:6333/collections
 
-## LLM request fails
+## LLM Request 失敗 / LLM request fails
 
-Verify the model exists:
+**繁體中文**：確認 Ollama Model 是否存在。  
+**English**: Verify that the configured Ollama model exists.
 
-```bash
-docker compose exec ollama ollama list
-```
+    docker compose exec ollama ollama list
 
-Pull it if necessary:
+若尚未下載 / Pull it if necessary:
 
-```bash
-docker compose exec ollama ollama pull llama3.2:3b
-```
+    docker compose exec ollama ollama pull llama3.2:3b
 
-## Slow first request
+## 第一次 Request 很慢 / Slow first request
 
-Sentence-transformer models are loaded lazily and may need to be downloaded on first use. For offline environments, pre-stage the model artifacts and pin them in the image or mounted model cache.
+**繁體中文**  
+Sentence-Transformer Model 採 Lazy Load，第一次執行可能需要下載 Model。若是 Offline Environment，請預先準備 Model Artifact，並固定到 Image 或 Mounted Model Cache。
+
+**English**  
+Sentence-transformer models are loaded lazily and may need to be downloaded on first use. For offline environments, pre-stage model artifacts and pin them in the image or mounted model cache.

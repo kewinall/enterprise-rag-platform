@@ -1,137 +1,161 @@
 # Enterprise RAG Platform
 
-**Current release: v0.2.0**
+**目前版本 / Current release: v0.2.0**
 
-A production-oriented Retrieval-Augmented Generation reference platform for enterprise use
-cases. The project demonstrates document ingestion, traceable metadata, vector and hybrid
-retrieval, optional reranking, grounded generation, document lifecycle APIs, evaluation,
-containerized local deployment, observability, CI and security checks.
+> **繁體中文**：這是一個以企業使用情境為目標的 Retrieval-Augmented Generation（RAG）參考平台，涵蓋文件匯入、可追溯 Metadata、Vector / Hybrid Retrieval、Optional Reranking、Grounded Generation、文件生命週期 API、Evaluation、Container 化部署、Observability、CI 與 Security Scan。
+>
+> **English**: A production-oriented Retrieval-Augmented Generation (RAG) reference platform for enterprise use cases, covering document ingestion, traceable metadata, vector/hybrid retrieval, optional reranking, grounded generation, document lifecycle APIs, evaluation, containerized deployment, observability, CI, and security checks.
 
-> Portfolio/reference implementation only. All included documents are synthetic and no
-> customer, company, credential or internal-environment data is stored in this repository.
+> **繁體中文**：本 Repository 為 Portfolio / Reference Implementation。所有內含文件皆為 synthetic sample，不包含任何客戶、公司、憑證或內部環境資料。
+>
+> **English**: This repository is a portfolio/reference implementation. All included documents are synthetic and contain no customer, company, credential, or internal-environment data.
 
-## What v0.2 adds
+## v0.2 新增內容 / What v0.2 adds
 
-- PDF page metadata and Markdown section metadata
-- deterministic document IDs and chunk lineage
-- batch ingestion
-- document list, delete and reindex operations
-- metadata filters for document ID, source, content type, page and section
-- explicit vector versus hybrid retrieval modes
-- vector-versus-hybrid quality and latency benchmark
-- expanded tests and synthetic evaluation cases
+- PDF Page Metadata 與 Markdown Section Metadata / PDF page metadata and Markdown section metadata
+- Deterministic Document ID 與 Chunk Lineage / deterministic document IDs and chunk lineage
+- Batch Ingestion / batch ingestion
+- 文件 List / Delete / Reindex / document list, delete, and reindex operations
+- Metadata Filter：document ID、source、content type、page、section
+- Vector 與 Hybrid Retrieval Mode / explicit vector and hybrid retrieval modes
+- Vector vs Hybrid 的品質與 Latency Benchmark
+- 更完整的 Tests 與 Synthetic Evaluation Cases / expanded tests and synthetic evaluation cases
 
-See [docs/v0.2.md](docs/v0.2.md) and [CHANGELOG.md](CHANGELOG.md).
+詳見 / See: docs/v0.2.md 與 / and CHANGELOG.md.
 
-## Architecture
+## 架構 / Architecture
 
-~~~mermaid
-flowchart LR
-    U[Client / UI] --> API[FastAPI]
-    API --> SEC[API Key + Guardrails]
-    SEC --> RAG[RAG Service]
+    Client / UI
+        |
+        v
+      FastAPI
+        |
+        v
+    API Key + Guardrails
+        |
+        v
+      RAG Service
+        |
+        +--> Qdrant Vector Search
+        +--> BM25 Lexical Search
+                 |
+                 v
+             RRF Fusion
+                 |
+                 v
+       Optional CrossEncoder
+                 |
+                 v
+         Context + Metadata
+                 |
+                 v
+      OpenAI-Compatible LLM
+                 |
+                 v
+        Answer + Citations
 
-    RAG --> RET[Retrieval Mode]
-    RET --> V[Qdrant Vector Search]
-    RET --> B[BM25 Lexical Search]
-    V --> F[RRF Fusion]
-    B --> F
-    F --> RR[Optional CrossEncoder Reranker]
+## 核心能力 / Core capabilities
 
-    RR --> CTX[Context + Metadata]
-    CTX --> LLM[OpenAI-Compatible LLM]
-    LLM --> ANS[Answer + Citations]
+### 文件匯入與生命週期 / Ingestion and lifecycle
 
-    ING[PDF / MD / TXT / CSV] --> PARSE[Page / Section Parser]
-    PARSE --> CHUNK[Deterministic Chunking]
-    CHUNK --> EMB[Sentence-Transformers]
-    EMB --> V
+**繁體中文**
+- 支援 PDF、Markdown、TXT、CSV。
+- chunk_size 與 chunk_overlap 可設定。
+- Document ID 與 Chunk ID 採 deterministic 設計。
+- PDF 保留 Page Lineage，Markdown 保留 Section Lineage。
+- 支援 Single-file 與 Batch Ingestion。
+- 相同 Document 重新匯入時會 idempotent replace。
+- 提供 List、Delete、Reindex API。
 
-    API --> DOC[Document Lifecycle]
-    DOC --> Q[Qdrant]
-    API --> MET[Prometheus Metrics]
-~~~
-
-## Core capabilities
-
-### Ingestion and lifecycle
-
-- PDF, Markdown, TXT and CSV
-- configurable chunk size and overlap
-- deterministic document and chunk IDs
-- PDF page and Markdown section lineage
-- single-file and batch ingestion
-- idempotent replacement on re-ingest
-- list, delete and explicit reindex APIs
+**English**
+- Supports PDF, Markdown, TXT, and CSV.
+- Configurable chunk size and overlap.
+- Deterministic document and chunk IDs.
+- PDF page lineage and Markdown section lineage.
+- Single-file and batch ingestion.
+- Idempotent replacement on re-ingest.
+- List, delete, and explicit reindex APIs.
 
 ### Retrieval
 
-- Qdrant semantic vector retrieval
-- BM25 lexical retrieval
-- Reciprocal Rank Fusion
-- optional CrossEncoder reranking
-- vector-only and hybrid modes
-- exact-match metadata filters
+**繁體中文**
+- Qdrant Semantic Vector Retrieval。
+- BM25 Lexical Retrieval。
+- Reciprocal Rank Fusion（RRF）。
+- Optional CrossEncoder Reranking。
+- 支援 Vector-only 與 Hybrid Mode。
+- 支援 Metadata Exact-match Filter。
+
+**English**
+- Qdrant semantic vector retrieval.
+- BM25 lexical retrieval.
+- Reciprocal Rank Fusion (RRF).
+- Optional CrossEncoder reranking.
+- Vector-only and hybrid modes.
+- Exact-match metadata filters.
 
 ### Generation
 
-- OpenAI-compatible chat completion boundary
-- local Ollama example
-- replaceable by LiteLLM, vLLM, OpenAI-compatible managed endpoints, and similar providers
-- numbered citations containing document, source, page and section lineage
-- basic prompt-injection heuristic
+**繁體中文**
+- 以 OpenAI-compatible Chat Completion 介面作為 LLM Boundary。
+- Docker 範例預設使用本機 Ollama。
+- 可替換為 LiteLLM、vLLM 或其他 OpenAI-compatible Endpoint。
+- Citation 包含 Document、Source、Page、Section Lineage。
+- 具備基本 Prompt Injection Heuristic。
 
-### Platform engineering
+**English**
+- OpenAI-compatible chat-completion boundary.
+- Local Ollama example by default.
+- Replaceable with LiteLLM, vLLM, or other OpenAI-compatible endpoints.
+- Numbered citations with document, source, page, and section lineage.
+- Basic prompt-injection heuristic.
+
+### Platform Engineering
 
 - FastAPI
-- Docker and Docker Compose
-- Prometheus metrics
-- API-key gate
-- health and readiness endpoints
-- Ruff and pytest CI
-- pip-audit dependency scan
-- Trivy filesystem scan
+- Docker / Docker Compose
+- Prometheus Metrics
+- API Key Gate
+- Health / Readiness Endpoint
+- Ruff + pytest CI
+- pip-audit Dependency Scan
+- Trivy Filesystem Scan
 
-## Repository structure
+## Repository 結構 / Repository structure
 
-~~~text
-.
-├── app/
-│   ├── api/
-│   ├── core/
-│   ├── evaluation/
-│   ├── ingestion/
-│   ├── rag/
-│   └── retrieval/
-├── data/
-│   ├── eval/
-│   └── sample/
-├── docs/
-├── scripts/
-├── tests/
-├── .github/workflows/
-├── Dockerfile
-├── docker-compose.yml
-├── pyproject.toml
-└── Makefile
-~~~
+    .
+    ├── app/
+    │   ├── api/
+    │   ├── core/
+    │   ├── evaluation/
+    │   ├── ingestion/
+    │   ├── rag/
+    │   └── retrieval/
+    ├── data/
+    ├── docs/
+    ├── scripts/
+    ├── tests/
+    ├── .github/workflows/
+    ├── Dockerfile
+    ├── docker-compose.yml
+    ├── pyproject.toml
+    └── Makefile
 
-## Quick start
+## 快速開始 / Quick start
 
-### 1. Configure
+### 1. 設定 / Configure
 
     git clone https://github.com/kewinall/enterprise-rag-platform.git
     cd enterprise-rag-platform
     cp .env.example .env
 
-Change RAG_API_KEY before exposing the service.
+**繁體中文**：對外提供服務前，請先修改 RAG_API_KEY。  
+**English**: Change RAG_API_KEY before exposing the service.
 
-### 2. Start the stack
+### 2. 啟動服務 / Start the stack
 
     docker compose up -d --build
     docker compose exec ollama ollama pull llama3.2:3b
-
-Default endpoints:
 
 | Service | URL |
 |---|---|
@@ -141,17 +165,24 @@ Default endpoints:
 | Ollama | http://localhost:11434 |
 | Metrics | http://localhost:8000/metrics |
 
-### 3. Batch-ingest the synthetic sample documents
+### 3. 批次匯入範例文件 / Batch-ingest synthetic sample documents
 
-    curl -X POST "http://localhost:8000/api/v1/ingest/batch"       -H "X-API-Key: change-me"       -F "files=@data/sample/platform-handbook.md"       -F "files=@data/sample/security-handbook.md"
+    curl -X POST "http://localhost:8000/api/v1/ingest/batch" \
+      -H "X-API-Key: change-me" \
+      -F "files=@data/sample/platform-handbook.md" \
+      -F "files=@data/sample/security-handbook.md"
 
-### 4. List indexed documents
+### 4. 查看已建立索引的文件 / List indexed documents
 
-    curl "http://localhost:8000/api/v1/documents"       -H "X-API-Key: change-me"
+    curl "http://localhost:8000/api/v1/documents" \
+      -H "X-API-Key: change-me"
 
-### 5. Run filtered hybrid search
+### 5. Metadata Filter + Hybrid Search
 
-    curl -X POST "http://localhost:8000/api/v1/search"       -H "Content-Type: application/json"       -H "X-API-Key: change-me"       -d '{
+    curl -X POST "http://localhost:8000/api/v1/search" \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: change-me" \
+      -d '{
         "query": "How should administrative access be granted?",
         "top_k": 5,
         "mode": "hybrid",
@@ -161,29 +192,21 @@ Default endpoints:
         }
       }'
 
-### 6. Ask a grounded question
+## 文件生命週期 API / Document lifecycle API
 
-    curl -X POST "http://localhost:8000/api/v1/query"       -H "Content-Type: application/json"       -H "X-API-Key: change-me"       -d '{
-        "question": "What should happen before a production release?",
-        "top_k": 5,
-        "mode": "hybrid"
-      }'
-
-## Document lifecycle API
-
-| Method | Endpoint | Purpose |
+| Method | Endpoint | 用途 / Purpose |
 |---|---|---|
-| POST | /api/v1/ingest | ingest or replace one file |
-| POST | /api/v1/ingest/batch | ingest multiple files |
-| GET | /api/v1/documents | list indexed documents and metadata |
-| DELETE | /api/v1/documents/{document_id} | delete all chunks for a document |
-| PUT | /api/v1/documents/{document_id}/reindex | replace a document while keeping its ID |
-| POST | /api/v1/search | retrieval only |
-| POST | /api/v1/query | RAG answer with citations |
+| POST | /api/v1/ingest | 匯入或取代單一文件 / ingest or replace one file |
+| POST | /api/v1/ingest/batch | 批次匯入 / ingest multiple files |
+| GET | /api/v1/documents | 查看文件與 Metadata / list indexed documents and metadata |
+| DELETE | /api/v1/documents/{document_id} | 刪除全部 Chunks / delete all chunks for a document |
+| PUT | /api/v1/documents/{document_id}/reindex | 保留 ID 並重新建立索引 / replace while keeping its ID |
+| POST | /api/v1/search | Retrieval only |
+| POST | /api/v1/query | RAG Answer + Citations |
 
-## Retrieval filters
+## Retrieval Filter
 
-Search and query requests can filter by:
+Search / Query 可使用 / can filter by:
 
 - document_id
 - source
@@ -191,21 +214,22 @@ Search and query requests can filter by:
 - page
 - section
 
-All supplied fields are combined using AND semantics in Qdrant and the hybrid lexical corpus.
+**繁體中文**：多個 Filter 欄位採 AND Semantics。  
+**English**: All supplied fields use AND semantics.
 
-## Evaluation and benchmarking
+## Evaluation 與 Benchmarking
 
-Evaluate hybrid retrieval:
-
-    python scripts/evaluate_retrieval.py       --dataset data/eval/retrieval_eval.jsonl       --k 5       --mode hybrid
-
-Compare vector and hybrid retrieval:
+    python scripts/evaluate_retrieval.py \
+      --dataset data/eval/retrieval_eval.jsonl \
+      --k 5 \
+      --mode hybrid
 
     make benchmark
 
-The benchmark reports Recall@K, MRR and average retrieval latency.
+**繁體中文**：Benchmark 會輸出 Recall@K、MRR 與平均 Retrieval Latency。  
+**English**: The benchmark reports Recall@K, MRR, and average retrieval latency.
 
-## Local development
+## 本機開發 / Local development
 
     python -m venv .venv
     source .venv/bin/activate
@@ -214,27 +238,27 @@ The benchmark reports Recall@K, MRR and average retrieval latency.
     make lint
     make test
 
-## Documentation
+## 文件 / Documentation
 
-- [Architecture](docs/architecture.md)
-- [Installation](docs/installation.md)
-- [RAG design](docs/rag-design.md)
-- [Evaluation](docs/evaluation.md)
-- [v0.2 feature guide](docs/v0.2.md)
-- [Security](docs/security.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Roadmap](docs/roadmap.md)
-- [Changelog](CHANGELOG.md)
+- docs/architecture.md — 架構 / Architecture
+- docs/installation.md — 安裝 / Installation
+- docs/rag-design.md — RAG 設計 / RAG design
+- docs/evaluation.md — 評測 / Evaluation
+- docs/v0.2.md — v0.2 功能指南 / feature guide
+- docs/security.md — 安全 / Security
+- docs/troubleshooting.md — 故障排除 / Troubleshooting
+- docs/roadmap.md — Roadmap
+- CHANGELOG.md — 版本異動 / Changelog
 
-## Design principles
+## 設計原則 / Design principles
 
-1. **Provider-neutral** — generation is isolated behind an OpenAI-compatible boundary.
-2. **Retrieval-first** — retrieval can be benchmarked independently from generation.
-3. **Traceable** — document, chunk, page and section lineage are preserved.
-4. **Testable** — core deterministic utilities are unit-tested without a live LLM.
-5. **Local-first** — the default stack can keep documents and generation local.
-6. **Production-aware** — security, lifecycle, observability and evaluation are part of the design.
+1. **Provider-neutral** — Generation 隔離在 OpenAI-compatible Boundary / generation is isolated behind an OpenAI-compatible boundary.
+2. **Retrieval-first** — Retrieval 可獨立 Benchmark / retrieval can be benchmarked independently from generation.
+3. **Traceable** — 保留 Document、Chunk、Page、Section Lineage / lineage is preserved.
+4. **Testable** — 核心 deterministic utility 可 unit test / deterministic utilities are unit-tested.
+5. **Local-first** — 預設 Stack 可將文件與 Generation 留在本機 / documents and generation can remain local.
+6. **Production-aware** — Security、Lifecycle、Observability、Evaluation 都納入設計 / are part of the design.
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+MIT License. See LICENSE.

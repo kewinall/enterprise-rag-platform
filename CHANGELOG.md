@@ -1,31 +1,31 @@
-# Changelog
+# 版本異動紀錄 / Changelog
 
 ## 0.2.0 - 2026-09-08
 
-### Added
+### 新增 / Added
 
-- PDF page metadata and Markdown heading metadata
-- deterministic document IDs
-- batch ingestion API
-- document list, delete and reindex APIs
-- metadata filters for document ID, source, content type, page and section
-- explicit vector and hybrid retrieval modes
-- retrieval benchmark comparing Recall@K, MRR and average latency
-- second synthetic handbook and broader evaluation dataset
-- unit tests for metadata parsing, filtering and evaluation metrics
+- PDF Page Metadata 與 Markdown Heading Metadata / PDF page metadata and Markdown heading metadata
+- Deterministic Document ID / deterministic document IDs
+- Batch Ingestion API
+- 文件 List、Delete、Reindex API / document list, delete, and reindex APIs
+- Metadata Filter：Document ID、Source、Content Type、Page、Section
+- Vector 與 Hybrid Retrieval Mode / explicit vector and hybrid retrieval modes
+- Retrieval Benchmark：Recall@K、MRR、Average Latency
+- 第二份 Synthetic Handbook 與更完整 Evaluation Dataset / second synthetic handbook and broader evaluation dataset
+- Metadata Parsing、Filtering、Evaluation Metric Unit Tests
 
-### Changed
+### 變更 / Changed
 
-- search endpoint now supports the same hybrid pipeline used by RAG queries
-- citations now include document ID, page and section metadata
-- re-ingesting the same document replaces its previous chunks
-- application version advanced to 0.2.0
+- Search Endpoint 改用與 RAG Query 相同的 Hybrid Pipeline / search endpoint now supports the same hybrid pipeline used by RAG queries
+- Citation 新增 Document ID、Page、Section Metadata / citations now include document ID, page, and section metadata
+- 相同文件重新匯入時會取代舊 Chunks / re-ingesting the same document replaces previous chunks
+- Application Version 更新至 / advanced to 0.2.0
 
 ## 0.1.0 - 2026-09-08
 
-- initial FastAPI RAG platform
-- Qdrant vector retrieval
-- BM25 and Reciprocal Rank Fusion
-- optional CrossEncoder reranking
-- local Ollama example
-- CI, pip-audit and Trivy security workflows
+- 初始 FastAPI RAG Platform / initial FastAPI RAG platform
+- Qdrant Vector Retrieval
+- BM25 + Reciprocal Rank Fusion
+- Optional CrossEncoder Reranking
+- Local Ollama Example
+- CI、pip-audit、Trivy Security Workflow
