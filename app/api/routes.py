@@ -21,7 +21,7 @@ from app.api.schemas import (
 )
 from app.core.cache import get_cache_store
 from app.core.config import get_settings
-from app.core.metrics import AGENT_RATE_LIMITED
+from app.core.metrics import AGENT_APPROVALS, AGENT_RATE_LIMITED
 from app.core.object_store import get_object_store
 from app.core.rate_limit import get_agent_rate_limiter
 from app.core.security import (
@@ -334,6 +334,7 @@ async def approve_agent_action(action_id: str, principal: PrincipalDep) -> dict:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (RuntimeError, ValueError, KeyError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    AGENT_APPROVALS.labels("approved").inc()
     return {
         "status": "approved_and_executed",
         "action_id": action_id,
@@ -345,7 +346,9 @@ async def approve_agent_action(action_id: str, principal: PrincipalDep) -> dict:
 @router.post("/agent/approvals/{action_id}/reject")
 async def reject_agent_action(action_id: str, principal: PrincipalDep) -> dict:
     try:
-        return await reject_approval_request(action_id, principal)
+        result = await reject_approval_request(action_id, principal)
+        AGENT_APPROVALS.labels("rejected").inc()
+        return result
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except LookupError as exc:
