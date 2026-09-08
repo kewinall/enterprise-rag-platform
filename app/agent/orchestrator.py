@@ -2,7 +2,7 @@ from typing import Any
 
 from app.agent.approval import create_approval_request
 from app.agent.critic import review_answer, review_context
-from app.agent.models import ToolCall
+from app.agent.models import AgentPlan, ToolCall
 from app.agent.planner import plan_query
 from app.agent.tools import (
     ToolApprovalRequired,
@@ -118,19 +118,42 @@ async def run_agent(
         span.set_attribute("agent.tenant_id", principal.tenant_id)
         span.set_attribute("agent.max_steps", settings.agent_max_steps)
 
-        plan = await plan_query(question)
-        trace.append(
-            {
-                "step": "plan",
-                "intent": plan.intent,
-                "rewritten_query": plan.rewritten_query,
-                "subqueries": list(plan.subqueries),
-                "tool_calls": [
-                    {"name": call.name, "arguments": call.arguments}
-                    for call in plan.tool_calls
-                ],
-            }
-        )
+        try:
+            plan = await plan_query(question)
+        except ValueError as exc:
+            plan = AgentPlan(
+                intent="knowledge_query",
+                rewritten_query=question,
+                tool_calls=(
+                    ToolCall(
+                        name="search_knowledge",
+                        arguments={"query": question, "top_k": top_k, "mode": mode},
+                    ),
+                ),
+                answer_strategy="fallback grounded retrieval",
+            )
+            trace.append(
+                {
+                    "step": "plan",
+                    "status": "degraded",
+                    "reason": str(exc),
+                    "fallback": "search_knowledge",
+                }
+            )
+        else:
+            trace.append(
+                {
+                    "step": "plan",
+                    "status": "completed",
+                    "intent": plan.intent,
+                    "rewritten_query": plan.rewritten_query,
+                    "subqueries": list(plan.subqueries),
+                    "tool_calls": [
+                        {"name": call.name, "arguments": call.arguments}
+                        for call in plan.tool_calls
+                    ],
+                }
+            )
         steps += 1
 
         tool_calls = list(plan.tool_calls)
@@ -239,15 +262,26 @@ async def run_agent(
 
         context_review = None
         if contexts and steps < settings.agent_max_steps:
-            context_review = await review_context(question, contexts)
-            trace.append(
-                {
-                    "step": "context_critic",
-                    "sufficient": context_review.sufficient,
-                    "reason": context_review.reason,
-                    "follow_up_query": context_review.follow_up_query,
-                }
-            )
+            try:
+                context_review = await review_context(question, contexts)
+            except ValueError as exc:
+                trace.append(
+                    {
+                        "step": "context_critic",
+                        "status": "degraded",
+                        "reason": str(exc),
+                    }
+                )
+            else:
+                trace.append(
+                    {
+                        "step": "context_critic",
+                        "status": "completed",
+                        "sufficient": context_review.sufficient,
+                        "reason": context_review.reason,
+                        "follow_up_query": context_review.follow_up_query,
+                    }
+                )
             steps += 1
 
         if (
@@ -301,20 +335,30 @@ async def run_agent(
         )
         answer = await generate_answer(question, numbered_context)
         trace.append({"step": "generate", "status": "completed"})
-        steps += 1
 
         answer_review = None
         if steps < settings.agent_max_steps:
-            answer_review = await review_answer(question, answer, contexts)
-            trace.append(
-                {
-                    "step": "answer_critic",
-                    "passed": answer_review.passed,
-                    "groundedness": answer_review.groundedness,
-                    "relevance": answer_review.relevance,
-                    "reason": answer_review.reason,
-                }
-            )
+            try:
+                answer_review = await review_answer(question, answer, contexts)
+            except ValueError as exc:
+                trace.append(
+                    {
+                        "step": "answer_critic",
+                        "status": "degraded",
+                        "reason": str(exc),
+                    }
+                )
+            else:
+                trace.append(
+                    {
+                        "step": "answer_critic",
+                        "status": "completed",
+                        "passed": answer_review.passed,
+                        "groundedness": answer_review.groundedness,
+                        "relevance": answer_review.relevance,
+                        "reason": answer_review.reason,
+                    }
+                )
             steps += 1
 
         if (
