@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.api.schemas import AnswerEvaluationRequest, QueryRequest, SearchRequest
+from app.core.cache import get_cache_store
 from app.core.config import get_settings
 from app.core.object_store import get_object_store
 from app.core.security import (
@@ -89,6 +90,7 @@ async def _ingest_upload(
         principal.tenant_id,
     )
     store.upsert(chunks)
+    await get_cache_store().bump_tenant_revision(principal.tenant_id)
 
     return {
         "document_id": resolved_document_id,
@@ -173,6 +175,7 @@ async def delete_document(document_id: str, principal: PrincipalDep) -> dict:
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     deleted_chunks = store.delete_document(document_id, principal.tenant_id)
+    await get_cache_store().bump_tenant_revision(principal.tenant_id)
     return {
         "document_id": document_id,
         "tenant_id": principal.tenant_id,
