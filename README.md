@@ -1,145 +1,140 @@
 # Enterprise RAG Platform
 
-**目前版本 / Current release: v0.2.0**
+**目前版本 / Current release: v0.3.0**
 
-> **繁體中文**：這是一個以企業使用情境為目標的 Retrieval-Augmented Generation（RAG）參考平台，涵蓋文件匯入、可追溯 Metadata、Vector / Hybrid Retrieval、Optional Reranking、Grounded Generation、文件生命週期 API、Evaluation、Container 化部署、Observability、CI 與 Security Scan。
+> **繁體中文**：這是一個以企業使用情境為目標的 Retrieval-Augmented Generation（RAG）參考平台。v0.3 在原有 Hybrid Retrieval 與 Document Lifecycle 基礎上，加入 Redis Cache、PostgreSQL Audit、OpenTelemetry Tracing、LiteLLM Gateway、RAGAS-style Answer Evaluation 與離線友善的 Web UI。
 >
-> **English**: A production-oriented Retrieval-Augmented Generation (RAG) reference platform for enterprise use cases, covering document ingestion, traceable metadata, vector/hybrid retrieval, optional reranking, grounded generation, document lifecycle APIs, evaluation, containerized deployment, observability, CI, and security checks.
+> **English**: A production-oriented Retrieval-Augmented Generation (RAG) reference platform. v0.3 extends the existing hybrid retrieval and document lifecycle foundation with Redis caching, PostgreSQL auditing, OpenTelemetry tracing, a LiteLLM gateway, RAGAS-style answer evaluation, and an offline-friendly Web UI.
 
 > **繁體中文**：本 Repository 為 Portfolio / Reference Implementation。所有內含文件皆為 synthetic sample，不包含任何客戶、公司、憑證或內部環境資料。
 >
 > **English**: This repository is a portfolio/reference implementation. All included documents are synthetic and contain no customer, company, credential, or internal-environment data.
 
-## v0.2 新增內容 / What v0.2 adds
+## v0.3 新增內容 / What v0.3 adds
 
-- PDF Page Metadata 與 Markdown Section Metadata / PDF page metadata and Markdown section metadata
-- Deterministic Document ID 與 Chunk Lineage / deterministic document IDs and chunk lineage
-- Batch Ingestion / batch ingestion
-- 文件 List / Delete / Reindex / document list, delete, and reindex operations
-- Metadata Filter：document ID、source、content type、page、section
-- Vector 與 Hybrid Retrieval Mode / explicit vector and hybrid retrieval modes
-- Vector vs Hybrid 的品質與 Latency Benchmark
-- 更完整的 Tests 與 Synthetic Evaluation Cases / expanded tests and synthetic evaluation cases
+- RAGAS-style Faithfulness、Answer Relevance、Context Relevance、Optional Answer Correctness
+- OpenTelemetry Trace：HTTP Request、Retrieval、RAG、LLM Completion、Evaluation
+- PostgreSQL Request Audit Record
+- Redis Answer Cache，降低重複 LLM Request 成本
+- LiteLLM Gateway，將 RAG API 與 Model Provider 解耦
+- Web UI：Batch Upload、Document List、Chat、Citation Inspection
+- Docker Compose Runtime：Qdrant、Ollama、LiteLLM、PostgreSQL、Redis、OTel Collector
+- Qdrant 更新至 v1.19.0，Ollama 更新至 0.33.3，LiteLLM 使用 v1.100.0
 
-詳見 / See: docs/v0.2.md 與 / and CHANGELOG.md.
+詳見 / See: docs/v0.3.md 與 / and CHANGELOG.md.
 
 ## 架構 / Architecture
 
-    Client / UI
-        |
-        v
-      FastAPI
-        |
-        v
-    API Key + Guardrails
-        |
-        v
-      RAG Service
-        |
-        +--> Qdrant Vector Search
-        +--> BM25 Lexical Search
+    Browser / Client
+          |
+          v
+        FastAPI
+          |
+          +--------------------------+
+          |                          |
+          v                          v
+    Document / RAG API          PostgreSQL Audit
+          |
+          +------> Redis Answer Cache
+          |
+          v
+    Hybrid Retrieval
+      |          |
+      v          v
+    Qdrant      BM25
+                /
+               /
+        RRF + Optional Reranker
                  |
                  v
-             RRF Fusion
+              Context
                  |
                  v
-       Optional CrossEncoder
+              LiteLLM
                  |
                  v
-         Context + Metadata
+               Ollama
+
+    FastAPI / Retrieval / LLM / Evaluation
                  |
                  v
-      OpenAI-Compatible LLM
+          OpenTelemetry OTLP
                  |
                  v
-        Answer + Citations
+           OTel Collector
 
 ## 核心能力 / Core capabilities
 
-### 文件匯入與生命週期 / Ingestion and lifecycle
+### Ingestion 與 Lifecycle / 文件匯入與生命週期
 
 **繁體中文**
-- 支援 PDF、Markdown、TXT、CSV。
-- chunk_size 與 chunk_overlap 可設定。
-- Document ID 與 Chunk ID 採 deterministic 設計。
-- PDF 保留 Page Lineage，Markdown 保留 Section Lineage。
-- 支援 Single-file 與 Batch Ingestion。
-- 相同 Document 重新匯入時會 idempotent replace。
-- 提供 List、Delete、Reindex API。
+- PDF、Markdown、TXT、CSV。
+- PDF Page 與 Markdown Section Lineage。
+- Deterministic Document / Chunk ID。
+- Single / Batch Ingestion。
+- List、Delete、Reindex API。
+- 相同文件重新 Ingest 會取代舊 Chunks。
 
 **English**
-- Supports PDF, Markdown, TXT, and CSV.
-- Configurable chunk size and overlap.
+- PDF, Markdown, TXT, and CSV.
+- PDF page and Markdown section lineage.
 - Deterministic document and chunk IDs.
-- PDF page lineage and Markdown section lineage.
-- Single-file and batch ingestion.
-- Idempotent replacement on re-ingest.
-- List, delete, and explicit reindex APIs.
+- Single and batch ingestion.
+- List, delete, and reindex APIs.
+- Re-ingesting the same document replaces previous chunks.
 
 ### Retrieval
 
-**繁體中文**
-- Qdrant Semantic Vector Retrieval。
-- BM25 Lexical Retrieval。
-- Reciprocal Rank Fusion（RRF）。
-- Optional CrossEncoder Reranking。
-- 支援 Vector-only 與 Hybrid Mode。
-- 支援 Metadata Exact-match Filter。
+- Qdrant Semantic Vector Retrieval
+- BM25 Lexical Retrieval
+- Reciprocal Rank Fusion
+- Optional CrossEncoder Reranking
+- Vector / Hybrid Mode
+- Metadata Exact-match Filter
 
-**English**
-- Qdrant semantic vector retrieval.
-- BM25 lexical retrieval.
-- Reciprocal Rank Fusion (RRF).
-- Optional CrossEncoder reranking.
-- Vector-only and hybrid modes.
-- Exact-match metadata filters.
-
-### Generation
+### Generation 與 Gateway / Generation and gateway
 
 **繁體中文**
-- 以 OpenAI-compatible Chat Completion 介面作為 LLM Boundary。
-- Docker 範例預設使用本機 Ollama。
-- 可替換為 LiteLLM、vLLM 或其他 OpenAI-compatible Endpoint。
-- Citation 包含 Document、Source、Page、Section Lineage。
-- 具備基本 Prompt Injection Heuristic。
+- FastAPI 不直接綁死特定 Model Provider，而是透過 OpenAI-compatible Boundary。
+- Docker Stack 預設由 LiteLLM 將 enterprise-rag Model Route 到 Ollama。
+- 可將 LiteLLM Config 改成其他 Cloud / Local Provider。
 
 **English**
-- OpenAI-compatible chat-completion boundary.
-- Local Ollama example by default.
-- Replaceable with LiteLLM, vLLM, or other OpenAI-compatible endpoints.
-- Numbered citations with document, source, page, and section lineage.
-- Basic prompt-injection heuristic.
+- FastAPI is not coupled directly to one model provider and uses an OpenAI-compatible boundary.
+- The default Docker stack routes the enterprise-rag model through LiteLLM to Ollama.
+- LiteLLM configuration can be changed to other cloud or local providers.
 
-### Platform Engineering
+### Cache 與 Audit / Cache and audit
 
-- FastAPI
-- Docker / Docker Compose
-- Prometheus Metrics
-- API Key Gate
-- Health / Readiness Endpoint
-- Ruff + pytest CI
-- pip-audit Dependency Scan
-- Trivy Filesystem Scan
+**繁體中文**
+- Redis 以 Question、Top-K、Mode、Filter、Model 組成 deterministic Cache Key。
+- PostgreSQL Audit 僅記錄 Request Metadata，不預設保存 Query Body 或文件內容。
 
-## Repository 結構 / Repository structure
+**English**
+- Redis uses question, top-k, mode, filters, and model to build a deterministic cache key.
+- PostgreSQL auditing records request metadata without storing query bodies or document content by default.
 
-    .
-    ├── app/
-    │   ├── api/
-    │   ├── core/
-    │   ├── evaluation/
-    │   ├── ingestion/
-    │   ├── rag/
-    │   └── retrieval/
-    ├── data/
-    ├── docs/
-    ├── scripts/
-    ├── tests/
-    ├── .github/workflows/
-    ├── Dockerfile
-    ├── docker-compose.yml
-    ├── pyproject.toml
-    └── Makefile
+### Observability
+
+- OpenTelemetry SDK
+- OTLP HTTP Export
+- Request / Retrieval / LLM / Evaluation Span
+- Prometheus Metrics Endpoint
+- OTel Collector Debug Exporter Example
+
+### RAGAS-style Evaluation
+
+**繁體中文**
+內建 LLM-as-a-Judge 評測器，不強制依賴特定 Evaluation Framework；Metrics 概念對齊常見 RAGAS 指標。
+
+**English**
+The built-in LLM-as-a-Judge evaluator does not hard-depend on a specific evaluation framework; its metrics are aligned with common RAGAS-style concepts.
+
+Metrics:
+- Faithfulness
+- Answer Relevance
+- Context Relevance
+- Answer Correctness（有 Reference 時 / when a reference is provided）
 
 ## 快速開始 / Quick start
 
@@ -149,85 +144,62 @@
     cd enterprise-rag-platform
     cp .env.example .env
 
-**繁體中文**：對外提供服務前，請先修改 RAG_API_KEY。  
-**English**: Change RAG_API_KEY before exposing the service.
+**繁體中文**：正式或共用環境請務必修改 RAG_API_KEY、LITELLM_MASTER_KEY、POSTGRES_PASSWORD。  
+**English**: Change RAG_API_KEY, LITELLM_MASTER_KEY, and POSTGRES_PASSWORD for shared or production environments.
 
-### 2. 啟動服務 / Start the stack
+### 2. 啟動完整 Stack / Start the full stack
 
     docker compose up -d --build
+
+### 3. 準備 Local Model / Pull the local model
+
     docker compose exec ollama ollama pull llama3.2:3b
 
-| Service | URL |
-|---|---|
-| FastAPI | http://localhost:8000 |
-| Swagger UI | http://localhost:8000/docs |
-| Qdrant | http://localhost:6333 |
-| Ollama | http://localhost:11434 |
-| Metrics | http://localhost:8000/metrics |
+### 4. 開啟 Web UI / Open the Web UI
 
-### 3. 批次匯入範例文件 / Batch-ingest synthetic sample documents
+Browser:
 
-    curl -X POST "http://localhost:8000/api/v1/ingest/batch" \
-      -H "X-API-Key: change-me" \
-      -F "files=@data/sample/platform-handbook.md" \
-      -F "files=@data/sample/security-handbook.md"
+    http://localhost:8000/
 
-### 4. 查看已建立索引的文件 / List indexed documents
+### Runtime Services
 
-    curl "http://localhost:8000/api/v1/documents" \
-      -H "X-API-Key: change-me"
+| Service | URL / Port | 用途 / Purpose |
+|---|---|---|
+| FastAPI / Web UI | http://localhost:8000 | RAG API + UI |
+| Swagger UI | http://localhost:8000/docs | API Docs |
+| LiteLLM | http://localhost:4000 | LLM Gateway |
+| Qdrant | http://localhost:6333 | Vector DB |
+| Ollama | http://localhost:11434 | Local LLM |
+| PostgreSQL | localhost:5432 | Audit Store |
+| Redis | localhost:6379 | Answer Cache |
+| OTel OTLP HTTP | localhost:4318 | Trace Receiver |
+| Prometheus | http://localhost:8000/metrics | Metrics |
 
-### 5. Metadata Filter + Hybrid Search
-
-    curl -X POST "http://localhost:8000/api/v1/search" \
-      -H "Content-Type: application/json" \
-      -H "X-API-Key: change-me" \
-      -d '{
-        "query": "How should administrative access be granted?",
-        "top_k": 5,
-        "mode": "hybrid",
-        "filters": {
-          "source": "security-handbook.md",
-          "section": "Identity and Access"
-        }
-      }'
-
-## 文件生命週期 API / Document lifecycle API
+## API
 
 | Method | Endpoint | 用途 / Purpose |
 |---|---|---|
-| POST | /api/v1/ingest | 匯入或取代單一文件 / ingest or replace one file |
-| POST | /api/v1/ingest/batch | 批次匯入 / ingest multiple files |
-| GET | /api/v1/documents | 查看文件與 Metadata / list indexed documents and metadata |
-| DELETE | /api/v1/documents/{document_id} | 刪除全部 Chunks / delete all chunks for a document |
-| PUT | /api/v1/documents/{document_id}/reindex | 保留 ID 並重新建立索引 / replace while keeping its ID |
+| POST | /api/v1/ingest | 單檔匯入 / ingest one document |
+| POST | /api/v1/ingest/batch | 批次匯入 / batch ingestion |
+| GET | /api/v1/documents | 文件清單 / list indexed documents |
+| DELETE | /api/v1/documents/{document_id} | 刪除文件 / delete document |
+| PUT | /api/v1/documents/{document_id}/reindex | 重建索引 / reindex document |
 | POST | /api/v1/search | Retrieval only |
-| POST | /api/v1/query | RAG Answer + Citations |
+| POST | /api/v1/query | RAG answer + citations + cache state |
+| POST | /api/v1/evaluate/answer | RAGAS-style answer evaluation |
 
-## Retrieval Filter
+## Evaluation
 
-Search / Query 可使用 / can filter by:
-
-- document_id
-- source
-- content_type
-- page
-- section
-
-**繁體中文**：多個 Filter 欄位採 AND Semantics。  
-**English**: All supplied fields use AND semantics.
-
-## Evaluation 與 Benchmarking
-
-    python scripts/evaluate_retrieval.py \
-      --dataset data/eval/retrieval_eval.jsonl \
-      --k 5 \
-      --mode hybrid
+Retrieval Benchmark:
 
     make benchmark
 
-**繁體中文**：Benchmark 會輸出 Recall@K、MRR 與平均 Retrieval Latency。  
-**English**: The benchmark reports Recall@K, MRR, and average retrieval latency.
+RAGAS-style Answer Evaluation:
+
+    make evaluate-answers
+
+**繁體中文**：Answer Evaluation 需要已啟動的 Vector DB 與 LLM Gateway，並先匯入 Sample Documents。  
+**English**: Answer evaluation requires a running vector database and LLM gateway and assumes the sample documents have already been ingested.
 
 ## 本機開發 / Local development
 
@@ -242,22 +214,27 @@ Search / Query 可使用 / can filter by:
 
 - docs/architecture.md — 架構 / Architecture
 - docs/installation.md — 安裝 / Installation
-- docs/rag-design.md — RAG 設計 / RAG design
-- docs/evaluation.md — 評測 / Evaluation
-- docs/v0.2.md — v0.2 功能指南 / feature guide
-- docs/security.md — 安全 / Security
-- docs/troubleshooting.md — 故障排除 / Troubleshooting
+- docs/rag-design.md — RAG Design
+- docs/evaluation.md — Evaluation
+- docs/observability.md — OpenTelemetry
+- docs/audit-cache.md — PostgreSQL Audit + Redis Cache
+- docs/litellm.md — LiteLLM Gateway
+- docs/v0.2.md — v0.2 Feature Guide
+- docs/v0.3.md — v0.3 Feature Guide
+- docs/security.md — Security
+- docs/troubleshooting.md — Troubleshooting
 - docs/roadmap.md — Roadmap
-- CHANGELOG.md — 版本異動 / Changelog
+- CHANGELOG.md — Changelog
 
 ## 設計原則 / Design principles
 
-1. **Provider-neutral** — Generation 隔離在 OpenAI-compatible Boundary / generation is isolated behind an OpenAI-compatible boundary.
-2. **Retrieval-first** — Retrieval 可獨立 Benchmark / retrieval can be benchmarked independently from generation.
-3. **Traceable** — 保留 Document、Chunk、Page、Section Lineage / lineage is preserved.
-4. **Testable** — 核心 deterministic utility 可 unit test / deterministic utilities are unit-tested.
-5. **Local-first** — 預設 Stack 可將文件與 Generation 留在本機 / documents and generation can remain local.
-6. **Production-aware** — Security、Lifecycle、Observability、Evaluation 都納入設計 / are part of the design.
+1. **Provider-neutral** — Model access is isolated behind an OpenAI-compatible gateway.
+2. **Retrieval-first** — Retrieval can be tested independently from generation.
+3. **Traceable** — Document and runtime lineage are explicit.
+4. **Observable** — Metrics, traces, audit records, and request IDs are first-class features.
+5. **Cost-aware** — Redis avoids repeated generation for identical requests.
+6. **Local-first** — The default stack can run without sending documents to an external LLM.
+7. **Production-aware** — Security, lifecycle, audit, cache, and evaluation are part of the design.
 
 ## License
 
