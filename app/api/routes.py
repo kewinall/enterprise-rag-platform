@@ -4,9 +4,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from app.api.schemas import QueryRequest, SearchRequest
+from app.api.schemas import AnswerEvaluationRequest, QueryRequest, SearchRequest
 from app.core.config import get_settings
 from app.core.security import looks_like_prompt_injection, require_api_key
+from app.evaluation.answer_eval import evaluate_answer
 from app.ingestion.chunking import create_document_id, split_sections
 from app.ingestion.parsers import parse_file
 from app.rag.service import answer_question
@@ -127,4 +128,15 @@ async def query(request: QueryRequest) -> dict:
         request.top_k,
         filters=filters,
         mode=request.mode,
+        use_cache=request.use_cache,
+    )
+
+
+@router.post("/evaluate/answer")
+async def evaluate(request: AnswerEvaluationRequest) -> dict:
+    return await evaluate_answer(
+        question=request.question,
+        answer=request.answer,
+        contexts=request.contexts,
+        reference=request.reference,
     )
