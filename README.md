@@ -4,7 +4,7 @@
 
 
 > **📘 Interactive Project Guide / 專案互動式說明文件**  
-> [Open the single-file HTML guide](docs/enterprise-rag-platform-guide.html) — 架構、RAG/Agent 流程、功能矩陣、安全治理、部署、CI/Security、版本演進與面試官速讀集中於單一自包含 HTML。
+> [Open Live Project Guide](https://kewinall.github.io/enterprise-rag-platform/) · [Repository HTML](docs/enterprise-rag-platform-guide.html) — 架構、RAG/Agent 流程、功能矩陣、安全治理、部署、CI/Security、版本演進與面試官速讀集中於單一自包含 HTML。
 
 > **繁體中文**：Enterprise RAG Platform 是一個以企業知識為核心的 **Knowledge AI Platform**，展示文件如何經過 Ingestion、Hybrid Retrieval、Reranking、Grounded Generation、Citation 與 Evaluation，並套用 OIDC/RBAC、Multi-tenancy、Audit 與安全治理。
 >
