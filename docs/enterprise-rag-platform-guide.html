@@ -155,7 +155,37 @@ details+details{margin-top:10px} summary{cursor:pointer;font-weight:750}
     <a href="#cicd">CI/Security</a><a href="#evolution">版本演進</a><a href="#interview">面試官速讀</a>
   </nav>
 
-  <section id="role">
+  <section id="engineering-decisions">
+  <div class="section-head">
+    <div><span class="tag">P1 · Engineering Judgment</span><h2>Engineering Decisions & Production Evidence</h2></div>
+    <p>企業 RAG 的工程價值不在「能回答」，而在 retrieval、grounding、tenant isolation、adversarial safety 與 evaluation 都能被驗證。</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">
+    <div class="card"><h3>Problem</h3><p>Pure vector retrieval 會漏 exact keyword/entity；流暢回答不等於 grounded；multi-tenant 知識又不能因追求 recall 而跨界。</p></div>
+    <div class="card"><h3>Key Decision</h3><p>Vector + BM25 + RRF，再視需要加 Reranker；Answer 必須帶 Citation，並用 retrieval / answer / agent evaluation 驗證。</p></div>
+    <div class="card"><h3>Governance</h3><p>Tenant-scoped retrieval/state、rate/budget guardrail、tool allow-list、destructive action approval，將 Knowledge AI 與 authority 分開。</p></div>
+  </div>
+  <div class="table-wrap" style="margin-top:16px"><table>
+    <thead><tr><th>Decision</th><th>Benefit</th><th>Trade-off</th></tr></thead>
+    <tbody>
+      <tr><td>Hybrid Retrieval + RRF</td><td>兼顧 semantic 與 exact-match recall</td><td>Latency、index、tuning complexity 高於 pure vector</td></tr>
+      <tr><td>Optional Reranker</td><td>提升 candidate ordering relevance</td><td>增加 inference latency / compute cost</td></tr>
+      <tr><td>Citation + Evaluation</td><td>回答品質可量化，不把 fluency 當 correctness</td><td>需維護 eval dataset、threshold 與 regression baseline</td></tr>
+    </tbody>
+  </table></div>
+  <div class="table-wrap" style="margin-top:16px"><table>
+    <thead><tr><th>Failure Scenario</th><th>Engineering Response</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td>Evidence insufficient</td><td>由 citation / evaluation 暴露 unsupported answer，不把生成流暢度當正確性</td><td><a href="https://github.com/kewinall/enterprise-rag-platform/blob/main/scripts/evaluate_answers.py">evaluate_answers.py</a></td></tr>
+      <tr><td>Cross-tenant access attempt</td><td>Tenant / role filters 阻擋，不用關閉 isolation 來提高 recall</td><td><a href="https://github.com/kewinall/enterprise-rag-platform/blob/main/tests/test_tenancy.py">test_tenancy.py</a></td></tr>
+      <tr><td>Prompt / Tool injection</td><td>用 adversarial cases 做 regression，而不是只加強 system prompt</td><td><a href="https://github.com/kewinall/enterprise-rag-platform/blob/main/tests/test_adversarial.py">test_adversarial.py</a></td></tr>
+      <tr><td>Budget / rate exceeded</td><td>在資源消耗繼續擴大前由 runtime guardrail 拒絕</td><td><a href="https://github.com/kewinall/enterprise-rag-platform/blob/main/tests/test_budget.py">test_budget.py</a> · <a href="https://github.com/kewinall/enterprise-rag-platform/blob/main/tests/test_rate_limit.py">test_rate_limit.py</a></td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout" style="margin-top:16px"><strong>Interview signal：</strong>RAG 的成熟度不由「回答看起來很像真的」決定，而由可量化 retrieval quality、citation、tenant boundary 與 adversarial regression 決定。</div>
+</section>
+
+<section id="role">
     <div class="section-head"><div><div class="eyebrow">01 · Positioning</div><h2>作品集定位 / Portfolio Role</h2></div></div>
     <div class="g2 grid">
       <div class="card">
