@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0b1220">
+<title>Enterprise RAG Platform v0.6.0 — Interactive Project Guide</title>
+<style>
+:root{
+  --bg:#0b1220;--panel:#121b2e;--panel2:#17233a;--text:#eef4ff;--muted:#9fb0c8;
+  --line:#2a3b57;--accent:#6dd5fa;--accent2:#7c8cff;--ok:#52d273;--warn:#ffd166;
+  --danger:#ff7b7b;--code:#09101d;--shadow:0 18px 50px rgba(0,0,0,.28);
+  --radius:18px;--max:1220px;
+}
+[data-theme="light"]{
+  --bg:#f5f8fc;--panel:#fff;--panel2:#f2f6fb;--text:#172033;--muted:#5e6f86;
+  --line:#d7e0eb;--accent:#0077b6;--accent2:#5267d8;--code:#eef3f8;--shadow:0 18px 40px rgba(42,63,95,.12);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:
+  radial-gradient(circle at 10% 0%,rgba(109,213,250,.10),transparent 28%),
+  radial-gradient(circle at 90% 6%,rgba(124,140,255,.12),transparent 24%),
+  var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  line-height:1.65
+}
+a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+.container{max-width:var(--max);margin:auto;padding:0 24px}
+.topbar{
+  position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(14px);border-bottom:1px solid var(--line)
+}
+.topbar-inner{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:66px}
+.brand{font-weight:800;letter-spacing:.2px}.brand small{font-weight:600;color:var(--muted)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+button,.btn{
+  border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:11px;
+  padding:9px 12px;cursor:pointer;font:inherit;font-weight:650
+}
+button:hover,.btn:hover{border-color:var(--accent);text-decoration:none}
+.hero{padding:70px 0 40px}
+.hero-grid{display:grid;grid-template-columns:1.45fr .8fr;gap:30px;align-items:center}
+.kicker{color:var(--accent);font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:.82rem}
+h1{font-size:clamp(2.3rem,5vw,4.6rem);line-height:1.02;margin:.15em 0 .28em;letter-spacing:-.045em}
+h2{font-size:clamp(1.6rem,3vw,2.3rem);line-height:1.15;margin:0 0 18px}
+h3{font-size:1.16rem;margin:0 0 9px}
+.lead{font-size:1.14rem;color:var(--muted);max-width:780px}
+.badges{display:flex;gap:9px;flex-wrap:wrap;margin:22px 0}
+.badge{border:1px solid var(--line);background:var(--panel2);padding:7px 11px;border-radius:999px;font-size:.88rem;font-weight:750}
+.badge.ok{border-color:color-mix(in srgb,var(--ok) 55%,var(--line));color:var(--ok)}
+.hero-card,.card{background:linear-gradient(180deg,var(--panel),color-mix(in srgb,var(--panel) 86%,var(--panel2)));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.hero-card{padding:24px}
+.metric{display:flex;justify-content:space-between;gap:15px;padding:12px 0;border-bottom:1px dashed var(--line)}
+.metric:last-child{border-bottom:0}.metric strong{font-size:1.05rem}.metric span{color:var(--muted)}
+.navchips{display:flex;flex-wrap:wrap;gap:8px;padding:0 0 32px}
+.navchips a{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:7px 11px;font-size:.86rem;color:var(--text)}
+section{padding:38px 0}
+.section-head{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:20px}
+.eyebrow{font-size:.82rem;color:var(--accent);font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.muted{color:var(--muted)}
+.grid{display:grid;gap:18px}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.card{padding:22px}.card p:last-child{margin-bottom:0}
+.icon{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(109,213,250,.16),rgba(124,140,255,.18));border:1px solid var(--line);margin-bottom:12px;font-weight:900;color:var(--accent)}
+.callout{border-left:4px solid var(--accent);background:var(--panel);padding:16px 18px;border-radius:12px;border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.callout.warn{border-left-color:var(--warn)}.callout.ok{border-left-color:var(--ok)}
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;overflow:auto}
+.diagram svg{display:block;min-width:850px;width:100%;height:auto}
+svg text{font-family:ui-sans-serif,system-ui;fill:var(--text)} svg .muted-svg{fill:var(--muted)}
+svg .box{fill:var(--panel2);stroke:var(--line);stroke-width:2} svg .accent-box{fill:color-mix(in srgb,var(--accent2) 16%,var(--panel2));stroke:var(--accent2);stroke-width:2}
+svg .ok-box{fill:color-mix(in srgb,var(--ok) 13%,var(--panel2));stroke:var(--ok);stroke-width:2}
+svg .arrow{stroke:var(--muted);stroke-width:2.2;fill:none;marker-end:url(#arrow)}
+table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+th,td{padding:13px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.83rem;text-transform:uppercase;letter-spacing:.045em;color:var(--muted);background:var(--panel2)}
+tr:last-child td{border-bottom:0}
+.status{font-weight:800}.status.ok{color:var(--ok)}.status.warn{color:var(--warn)}
+code{font-family:"SFMono-Regular",Consolas,monospace;background:var(--code);padding:.1em .35em;border-radius:5px}
+pre{position:relative;background:var(--code);border:1px solid var(--line);padding:18px;border-radius:14px;overflow:auto;color:var(--text);line-height:1.55}
+pre code{padding:0;background:none}
+.copy{position:absolute;top:9px;right:9px;font-size:.75rem;padding:5px 8px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px}
+.tab.active{border-color:var(--accent);color:var(--accent)}
+.tabpanel{display:none}.tabpanel.active{display:block}
+.timeline{position:relative;padding-left:28px}.timeline:before{content:"";position:absolute;left:8px;top:4px;bottom:4px;width:2px;background:var(--line)}
+.titem{position:relative;padding:0 0 26px}.titem:before{content:"";position:absolute;left:-26px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--panel)}
+.titem strong{color:var(--accent)}
+.pillrow{display:flex;gap:8px;flex-wrap:wrap}.pill{font-size:.82rem;border:1px solid var(--line);padding:5px 8px;border-radius:999px;color:var(--muted)}
+.kpi{font-size:1.75rem;font-weight:850;letter-spacing:-.03em}.kpi-label{color:var(--muted);font-size:.88rem}
+.footer{border-top:1px solid var(--line);margin-top:40px;padding:30px 0 50px;color:var(--muted)}
+.interview{background:linear-gradient(145deg,color-mix(in srgb,var(--accent2) 12%,var(--panel)),var(--panel));}
+details{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:13px 15px}
+details+details{margin-top:10px} summary{cursor:pointer;font-weight:750}
+@media(max-width:900px){.hero-grid,.g2,.g3,.g4{grid-template-columns:1fr}.section-head{align-items:start;flex-direction:column}.hero{padding-top:42px}}
+@media print{
+  .topbar,.navchips,.actions,.copy{display:none!important}
+  body{background:white;color:#111}.card,.diagram,table,details,.callout{box-shadow:none;break-inside:avoid}
+  section{padding:20px 0}a{color:#111}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="container topbar-inner">
+    <div class="brand">Enterprise RAG Platform <small>v0.6.0</small></div>
+    <div class="actions">
+      <button id="themeBtn" type="button">Light / Dark</button>
+      <button onclick="window.print()" type="button">Print / PDF</button>
+      <a class="btn" href="https://github.com/kewinall/enterprise-rag-platform">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="container">
+  <section class="hero" id="top">
+    <div class="hero-grid">
+      <div>
+        <div class="kicker">Knowledge AI Platform · Portfolio Guide</div>
+        <h1>Enterprise RAG<br>Platform</h1>
+        <p class="lead">
+          <strong>繁體中文：</strong>以企業知識為核心的 RAG Reference Platform，從文件匯入、Hybrid Retrieval、
+          Reranking、Grounded Generation、Citation、Evaluation，一路延伸到 OIDC/RBAC、Multi-tenancy、
+          Audit、Agentic RAG、Kubernetes 與 Air-Gapped Delivery。
+        </p>
+        <p class="lead">
+          <strong>English:</strong> A production-oriented Knowledge AI platform covering ingestion, hybrid retrieval,
+          reranking, grounded generation, citations, evaluation, enterprise governance, agentic workflows, Kubernetes,
+          and offline delivery.
+        </p>
+        <div class="badges">
+          <span class="badge ok">v0.6.0 Stable</span>
+          <span class="badge">FastAPI</span><span class="badge">Qdrant</span><span class="badge">PostgreSQL</span>
+          <span class="badge">Redis</span><span class="badge">MinIO/S3</span><span class="badge">LiteLLM</span>
+          <span class="badge">OpenTelemetry</span><span class="badge">Helm</span>
+        </div>
+      </div>
+      <aside class="hero-card">
+        <div class="metric"><span>Portfolio Role</span><strong>Knowledge AI</strong></div>
+        <div class="metric"><span>Core Retrieval</span><strong>Vector + BM25 + RRF</strong></div>
+        <div class="metric"><span>Identity</span><strong>OIDC / RBAC / Tenant</strong></div>
+        <div class="metric"><span>Advanced Runtime</span><strong>Agent + MCP</strong></div>
+        <div class="metric"><span>Delivery</span><strong>Docker / Helm / Offline</strong></div>
+        <div class="metric"><span>Quality Gate</span><strong style="color:var(--ok)">CI + Security</strong></div>
+      </aside>
+    </div>
+  </section>
+
+  <nav class="navchips" aria-label="section navigation">
+    <a href="#role">定位</a><a href="#architecture">架構</a><a href="#features">功能</a>
+    <a href="#rag">RAG Flow</a><a href="#agent">Agentic RAG</a><a href="#security">安全</a>
+    <a href="#api">API</a><a href="#deploy">部署</a><a href="#evaluation">評測</a>
+    <a href="#cicd">CI/Security</a><a href="#evolution">版本演進</a><a href="#interview">面試官速讀</a>
+  </nav>
+
+  <section id="role">
+    <div class="section-head"><div><div class="eyebrow">01 · Positioning</div><h2>作品集定位 / Portfolio Role</h2></div></div>
+    <div class="g2 grid">
+      <div class="card">
+        <div class="icon">K</div><h3>Primary Responsibility</h3>
+        <p><strong>企業知識如何安全、可治理、可評測地提供給 RAG 與 Agent？</strong></p>
+        <p class="muted">How can enterprise knowledge be securely ingested, retrieved, grounded, evaluated, and governed?</p>
+      </div>
+      <div class="card">
+        <div class="icon">↔</div><h3>Responsibility Boundary</h3>
+        <p>本 Repo 專注 Knowledge。Reasoning、Tool Integration、Model Control 分別由其他 Portfolio Repo 負責。</p>
+        <div class="pillrow">
+          <span class="pill">Knowledge: this repo</span><span class="pill">Reasoning: DataOps Copilot</span>
+          <span class="pill">Tools: MCP Server</span><span class="pill">Models: LLM Gateway</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout ok" style="margin-top:18px">
+      <strong>面試重點：</strong>這不是「PDF Chatbot」。核心價值在於完整的 enterprise knowledge lifecycle：
+      ingestion → retrieval → grounding → citation → evaluation → governance → deployment。
+    </div>
+  </section>
+
+  <section id="architecture">
+    <div class="section-head"><div><div class="eyebrow">02 · Architecture</div><h2>核心架構 / Core Architecture</h2></div>
+    <div class="muted">Knowledge flow first; Agent/MCP are advanced integrations.</div></div>
+    <div class="diagram">
+      <svg viewBox="0 0 1120 560" role="img" aria-label="Enterprise RAG architecture">
+        <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="currentColor"/></marker></defs>
+        <rect class="accent-box" x="35" y="60" rx="16" ry="16" width="180" height="78"/><text x="125" y="92" text-anchor="middle" font-size="17" font-weight="800">Documents</text><text class="muted-svg" x="125" y="116" text-anchor="middle" font-size="13">PDF / MD / TXT / CSV</text>
+        <rect class="box" x="270" y="60" rx="16" ry="16" width="190" height="78"/><text x="365" y="92" text-anchor="middle" font-size="17" font-weight="800">Ingestion</text><text class="muted-svg" x="365" y="116" text-anchor="middle" font-size="13">Parse / Chunk / Metadata</text>
+        <rect class="box" x="520" y="30" rx="16" ry="16" width="190" height="78"/><text x="615" y="62" text-anchor="middle" font-size="17" font-weight="800">Vector Search</text><text class="muted-svg" x="615" y="86" text-anchor="middle" font-size="13">Qdrant + Embedding</text>
+        <rect class="box" x="520" y="130" rx="16" ry="16" width="190" height="78"/><text x="615" y="162" text-anchor="middle" font-size="17" font-weight="800">Lexical Search</text><text class="muted-svg" x="615" y="186" text-anchor="middle" font-size="13">BM25</text>
+        <rect class="accent-box" x="770" y="78" rx="16" ry="16" width="150" height="82"/><text x="845" y="112" text-anchor="middle" font-size="17" font-weight="800">RRF</text><text class="muted-svg" x="845" y="137" text-anchor="middle" font-size="13">Fusion</text>
+        <rect class="box" x="960" y="78" rx="16" ry="16" width="135" height="82"/><text x="1027" y="110" text-anchor="middle" font-size="16" font-weight="800">Reranker</text><text class="muted-svg" x="1027" y="135" text-anchor="middle" font-size="12">Optional</text>
+
+        <path class="arrow" d="M215 99 H265"/><path class="arrow" d="M460 90 H515"/><path class="arrow" d="M460 108 C490 108 490 169 515 169"/>
+        <path class="arrow" d="M710 69 C740 69 740 105 765 105"/><path class="arrow" d="M710 169 C740 169 740 135 765 135"/><path class="arrow" d="M920 119 H955"/>
+
+        <rect class="ok-box" x="390" y="270" rx="18" ry="18" width="245" height="86"/><text x="512" y="306" text-anchor="middle" font-size="18" font-weight="800">Grounded Context</text><text class="muted-svg" x="512" y="331" text-anchor="middle" font-size="13">Top-K + Metadata + Tenant Scope</text>
+        <rect class="accent-box" x="700" y="270" rx="18" ry="18" width="185" height="86"/><text x="792" y="306" text-anchor="middle" font-size="18" font-weight="800">LLM</text><text class="muted-svg" x="792" y="331" text-anchor="middle" font-size="13">LiteLLM / Ollama / API</text>
+        <rect class="ok-box" x="945" y="270" rx="18" ry="18" width="150" height="86"/><text x="1020" y="303" text-anchor="middle" font-size="17" font-weight="800">Answer</text><text class="muted-svg" x="1020" y="328" text-anchor="middle" font-size="13">+ Citations</text>
+        <path class="arrow" d="M1027 160 C1027 220 512 210 512 265"/><path class="arrow" d="M635 313 H695"/><path class="arrow" d="M885 313 H940"/>
+
+        <rect class="box" x="35" y="430" rx="14" ry="14" width="1030" height="82"/><text x="550" y="462" text-anchor="middle" font-size="16" font-weight="800">Enterprise Governance Plane</text><text class="muted-svg" x="550" y="487" text-anchor="middle" font-size="13">OIDC · RBAC · Multi-tenancy · MinIO/S3 · Redis Cache · PostgreSQL Audit · OpenTelemetry · Kubernetes · Offline Delivery</text>
+        <path class="arrow" d="M550 425 V365"/>
+      </svg>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="section-head"><div><div class="eyebrow">03 · Feature Matrix</div><h2>功能矩陣 / Capability Matrix</h2></div></div>
+    <table>
+      <thead><tr><th>Domain</th><th>Capability</th><th>Implementation</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Knowledge</td><td>Document lifecycle</td><td>PDF / MD / TXT / CSV, metadata, reindex/delete</td><td class="status ok">Ready</td></tr>
+        <tr><td>Retrieval</td><td>Hybrid search</td><td>Qdrant vector + BM25 + RRF + optional CrossEncoder</td><td class="status ok">Ready</td></tr>
+        <tr><td>Grounding</td><td>Citations</td><td>document_id / source / chunk / page / section lineage</td><td class="status ok">Ready</td></tr>
+        <tr><td>Evaluation</td><td>Retrieval + answer + agent</td><td>Recall/MRR + RAGAS-style metrics + adversarial suite</td><td class="status ok">Ready</td></tr>
+        <tr><td>Identity</td><td>OIDC / RBAC</td><td>JWT validation, viewer/editor/admin</td><td class="status ok">Ready</td></tr>
+        <tr><td>Tenancy</td><td>Server-enforced isolation</td><td>Tenant derived from trusted principal, not request body</td><td class="status ok">Ready</td></tr>
+        <tr><td>Storage</td><td>Object store</td><td>MinIO / S3 with presigned download</td><td class="status ok">Ready</td></tr>
+        <tr><td>Agent</td><td>Planning / critic / corrective RAG</td><td>Bounded state machine with tool allowlist</td><td class="status ok">Advanced</td></tr>
+        <tr><td>Safety</td><td>Human approval</td><td>Redis TTL, tenant/role re-check, one-time consume</td><td class="status ok">Ready</td></tr>
+        <tr><td>Durability</td><td>Session / checkpoint / async job</td><td>PostgreSQL durable state + SKIP LOCKED worker</td><td class="status ok">Advanced</td></tr>
+        <tr><td>Observability</td><td>Metrics / traces / audit</td><td>Prometheus + OpenTelemetry + PostgreSQL</td><td class="status ok">Ready</td></tr>
+        <tr><td>Delivery</td><td>Docker / Helm / Offline</td><td>Compose, hardened Helm, air-gapped bundle scripts</td><td class="status ok">Ready</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="rag">
+    <div class="section-head"><div><div class="eyebrow">04 · RAG Flow</div><h2>Standard RAG 如何運作</h2></div></div>
+    <div class="g3 grid">
+      <div class="card"><div class="icon">1</div><h3>Ingest</h3><p>解析文件、保留 page/section/content_type，建立 deterministic document/chunk lineage。</p></div>
+      <div class="card"><div class="icon">2</div><h3>Retrieve</h3><p>同時執行 semantic vector search 與 BM25，再以 Reciprocal Rank Fusion 合併排名。</p></div>
+      <div class="card"><div class="icon">3</div><h3>Ground</h3><p>只將 tenant-scoped Top-K evidence 交給 LLM，回答附 citation 與來源定位。</p></div>
+    </div>
+    <div class="tabs" style="margin-top:18px">
+      <button class="tab active" data-tab="standard">Standard RAG</button>
+      <button class="tab" data-tab="hybrid">Hybrid Retrieval</button>
+      <button class="tab" data-tab="citation">Citation Contract</button>
+    </div>
+    <div class="tabpanel active" id="standard">
+<pre><code>Question
+   ↓
+Tenant-scoped Retrieval
+   ↓
+Top-K Context
+   ↓
+LLM Generation
+   ↓
+Answer + Citations
+   ↓
+Evaluation / Audit / Trace</code></pre>
+    </div>
+    <div class="tabpanel" id="hybrid">
+<pre><code>Semantic Query ──→ Qdrant Vector ──┐
+                                   ├─→ Reciprocal Rank Fusion ─→ Rerank ─→ Top-K
+Keyword Query  ──→ BM25 ───────────┘</code></pre>
+    </div>
+    <div class="tabpanel" id="citation">
+<pre><code>{
+  "id": 1,
+  "document_id": "...",
+  "source": "runbook.md",
+  "chunk_id": "...",
+  "page": null,
+  "section": "Production Release"
+}</code></pre>
+    </div>
+  </section>
+
+  <section id="agent">
+    <div class="section-head"><div><div class="eyebrow">05 · Advanced</div><h2>Agentic RAG / Governed Agent Runtime</h2></div></div>
+    <div class="diagram">
+      <svg viewBox="0 0 1120 490" role="img" aria-label="Agentic RAG flow">
+        <defs><marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="currentColor"/></marker></defs>
+        <style>.a2{stroke:var(--muted);stroke-width:2.2;fill:none;marker-end:url(#arrow2)}</style>
+        <rect class="accent-box" x="30" y="75" rx="14" width="150" height="70"/><text x="105" y="104" text-anchor="middle" font-weight="800">Question</text><text class="muted-svg" x="105" y="127" text-anchor="middle" font-size="12">User / API</text>
+        <rect class="box" x="225" y="75" rx="14" width="155" height="70"/><text x="302" y="104" text-anchor="middle" font-weight="800">Planner</text><text class="muted-svg" x="302" y="127" text-anchor="middle" font-size="12">Rewrite / Tools / Subquery</text>
+        <rect class="box" x="430" y="35" rx="14" width="170" height="70"/><text x="515" y="64" text-anchor="middle" font-weight="800">Tool Policy</text><text class="muted-svg" x="515" y="87" text-anchor="middle" font-size="12">Role / Tenant / Allowlist</text>
+        <rect class="box" x="430" y="145" rx="14" width="170" height="70"/><text x="515" y="174" text-anchor="middle" font-weight="800">Multi-hop</text><text class="muted-svg" x="515" y="197" text-anchor="middle" font-size="12">Tenant-scoped Retrieval</text>
+        <rect class="accent-box" x="655" y="145" rx="14" width="170" height="70"/><text x="740" y="174" text-anchor="middle" font-weight="800">Context Critic</text><text class="muted-svg" x="740" y="197" text-anchor="middle" font-size="12">Sufficient?</text>
+        <rect class="box" x="655" y="255" rx="14" width="170" height="70"/><text x="740" y="284" text-anchor="middle" font-weight="800">Corrective Search</text><text class="muted-svg" x="740" y="307" text-anchor="middle" font-size="12">Focused follow-up</text>
+        <rect class="ok-box" x="875" y="145" rx="14" width="190" height="70"/><text x="970" y="174" text-anchor="middle" font-weight="800">Generate</text><text class="muted-svg" x="970" y="197" text-anchor="middle" font-size="12">Grounded Answer</text>
+        <rect class="box" x="875" y="255" rx="14" width="190" height="70"/><text x="970" y="284" text-anchor="middle" font-weight="800">Answer Critic</text><text class="muted-svg" x="970" y="307" text-anchor="middle" font-size="12">Groundedness / Relevance</text>
+        <rect class="ok-box" x="875" y="375" rx="14" width="190" height="70"/><text x="970" y="404" text-anchor="middle" font-weight="800">Final Response</text><text class="muted-svg" x="970" y="427" text-anchor="middle" font-size="12">Answer / Citation / Trace</text>
+
+        <path class="a2" d="M180 110 H220"/><path class="a2" d="M380 105 C405 105 405 70 425 70"/><path class="a2" d="M380 120 C405 120 405 180 425 180"/>
+        <path class="a2" d="M600 180 H650"/><path class="a2" d="M740 215 V250"/><path class="a2" d="M825 180 H870"/><path class="a2" d="M825 290 C850 290 850 205 875 205"/>
+        <path class="a2" d="M970 215 V250"/><path class="a2" d="M970 325 V370"/>
+
+        <rect class="accent-box" x="430" y="375" rx="14" width="260" height="70"/><text x="560" y="404" text-anchor="middle" font-weight="800">Human Approval Gate</text><text class="muted-svg" x="560" y="427" text-anchor="middle" font-size="12">Destructive tool → Redis TTL → Admin approve/reject</text>
+        <path class="a2" d="M515 105 C515 290 560 290 560 370"/>
+      </svg>
+    </div>
+    <div class="callout warn" style="margin-top:18px">
+      <strong>Safety boundary:</strong> LLM 只能「提出」Tool Call；Server-side Registry、RBAC、Tenant 與 Approval Policy 才能決定是否執行。
+      專案沒有開放 arbitrary shell、raw SQL、generic HTTP、<code>eval/exec</code>、cloud-admin 或 secret-read tool。
+    </div>
+  </section>
+
+  <section id="security">
+    <div class="section-head"><div><div class="eyebrow">06 · Security</div><h2>企業安全模型 / Security Model</h2></div></div>
+    <div class="g4 grid">
+      <div class="card"><div class="icon">ID</div><h3>Identity</h3><p>OIDC/JWT 或 API Key Demo；Principal 由可信任驗證層建立。</p></div>
+      <div class="card"><div class="icon">RB</div><h3>RBAC</h3><p>Viewer / Editor / Admin，Tool 與 API 各自檢查角色。</p></div>
+      <div class="card"><div class="icon">T</div><h3>Tenant</h3><p><code>tenant_id</code> 從 Principal 衍生，不接受 Client 任意覆寫。</p></div>
+      <div class="card"><div class="icon">✓</div><h3>Approval</h3><p>破壞性 Agent Tool 使用 TTL、tenant/role re-check 與 single consumption。</p></div>
+    </div>
+    <table style="margin-top:18px">
+      <thead><tr><th>Control</th><th>Design</th><th>Why it matters</th></tr></thead>
+      <tbody>
+        <tr><td>Prompt injection heuristic</td><td>Standard + Agent endpoints pre-check</td><td>Regression boundary, not complete DLP/guardrail replacement</td></tr>
+        <tr><td>Tool allowlist</td><td>Unknown planner tools discarded/rejected</td><td>Prevents arbitrary capability expansion</td></tr>
+        <tr><td>Audit minimization</td><td>No question/prompt/answer body by default</td><td>Reduces sensitive-data exposure</td></tr>
+        <tr><td>Trace minimization</td><td>Operational metadata only</td><td>Observability without prompt leakage</td></tr>
+        <tr><td>Budget / rate</td><td>Token/cost budget + Redis rate limit</td><td>Controls runaway agent/model usage</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="api">
+    <div class="section-head"><div><div class="eyebrow">07 · API</div><h2>主要 API / Main API Surface</h2></div></div>
+    <table>
+      <thead><tr><th>Area</th><th>Method</th><th>Endpoint</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Documents</td><td>POST</td><td><code>/api/v1/ingest</code></td><td>Ingest one document</td></tr>
+        <tr><td>Documents</td><td>POST</td><td><code>/api/v1/ingest/batch</code></td><td>Batch ingestion</td></tr>
+        <tr><td>Documents</td><td>GET</td><td><code>/api/v1/documents</code></td><td>List tenant documents</td></tr>
+        <tr><td>Search</td><td>POST</td><td><code>/api/v1/search</code></td><td>Vector / hybrid retrieval</td></tr>
+        <tr><td>RAG</td><td>POST</td><td><code>/api/v1/query</code></td><td>Grounded RAG answer</td></tr>
+        <tr><td>Evaluation</td><td>POST</td><td><code>/api/v1/evaluate/answer</code></td><td>RAGAS-style answer evaluation</td></tr>
+        <tr><td>Agent</td><td>POST</td><td><code>/api/v1/agent/query</code></td><td>Agentic RAG run</td></tr>
+        <tr><td>Agent</td><td>POST</td><td><code>/api/v1/agent/jobs</code></td><td>Durable async job</td></tr>
+        <tr><td>Agent</td><td>POST</td><td><code>/api/v1/agent/sessions</code></td><td>Create durable session</td></tr>
+        <tr><td>MCP</td><td>POST</td><td><code>/mcp</code></td><td>MCP-compatible tools subset</td></tr>
+        <tr><td>Ops</td><td>GET</td><td><code>/health</code> / <code>/ready</code> / <code>/metrics</code></td><td>Health, readiness, Prometheus</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="deploy">
+    <div class="section-head"><div><div class="eyebrow">08 · Deployment</div><h2>安裝與部署 / Installation & Delivery</h2></div></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="compose">Docker Compose</button>
+      <button class="tab" data-tab="helm">Kubernetes / Helm</button>
+      <button class="tab" data-tab="offline">Offline / Air-Gapped</button>
+    </div>
+    <div id="compose" class="tabpanel active">
+<pre><code>git clone https://github.com/kewinall/enterprise-rag-platform.git
+cd enterprise-rag-platform
+cp .env.example .env
+docker compose up -d --build
+docker compose exec ollama ollama pull llama3.2:3b
+
+# Web UI
+# http://localhost:8000/</code></pre>
+      <p class="muted">Compose services include API, Qdrant, Ollama, LiteLLM, PostgreSQL, Redis, MinIO/S3-compatible storage, and OpenTelemetry collector according to project configuration.</p>
+    </div>
+    <div id="helm" class="tabpanel">
+<pre><code>helm lint charts/enterprise-rag
+helm template test charts/enterprise-rag
+
+helm upgrade --install rag ./charts/enterprise-rag</code></pre>
+      <p class="muted">Helm includes probes, resources, securityContext, NetworkPolicy/PDB/HPA-style production controls according to chart values.</p>
+    </div>
+    <div id="offline" class="tabpanel">
+<pre><code>bash scripts/offline/prepare-bundle.sh ./offline-bundle
+bash scripts/offline/verify-bundle.sh ./offline-bundle
+bash scripts/offline/import-bundle.sh ./offline-bundle</code></pre>
+      <p class="muted">Bundle concepts: application image, dependent images, Python wheels, models, manifests, SBOM/checksum material and offline import guidance.</p>
+    </div>
+  </section>
+
+  <section id="evaluation">
+    <div class="section-head"><div><div class="eyebrow">09 · Evaluation</div><h2>評測策略 / Evaluation Strategy</h2></div></div>
+    <div class="g4 grid">
+      <div class="card"><div class="kpi">Recall@K</div><div class="kpi-label">Retrieval coverage</div></div>
+      <div class="card"><div class="kpi">MRR</div><div class="kpi-label">Ranking quality</div></div>
+      <div class="card"><div class="kpi">Faithfulness</div><div class="kpi-label">Grounding / factual support</div></div>
+      <div class="card"><div class="kpi">Approval Safety</div><div class="kpi-label">Agent tool governance</div></div>
+    </div>
+<pre style="margin-top:18px"><code>make benchmark
+make evaluate-answers
+make evaluate-agent
+make evaluate-adversarial</code></pre>
+    <p class="muted">Adversarial regression includes prompt-injection and unknown-tool cases so future changes do not silently widen the agent security boundary.</p>
+  </section>
+
+  <section id="cicd">
+    <div class="section-head"><div><div class="eyebrow">10 · Quality Gate</div><h2>CI / Security Pipeline</h2></div></div>
+    <div class="diagram">
+      <svg viewBox="0 0 1100 330" role="img" aria-label="CI Security pipeline">
+        <defs><marker id="arrow3" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="currentColor"/></marker></defs>
+        <style>.a3{stroke:var(--muted);stroke-width:2.2;fill:none;marker-end:url(#arrow3)}</style>
+        <rect class="accent-box" x="30" y="115" rx="14" width="140" height="70"/><text x="100" y="145" text-anchor="middle" font-weight="800">Commit / PR</text><text class="muted-svg" x="100" y="168" text-anchor="middle" font-size="12">main gate</text>
+        <rect class="box" x="235" y="45" rx="14" width="200" height="92"/><text x="335" y="78" text-anchor="middle" font-weight="800">CI</text><text class="muted-svg" x="335" y="102" text-anchor="middle" font-size="12">Ruff · pytest · Compose · Helm</text><text class="muted-svg" x="335" y="121" text-anchor="middle" font-size="12">JSON · shell · adversarial</text>
+        <rect class="box" x="235" y="185" rx="14" width="200" height="92"/><text x="335" y="218" text-anchor="middle" font-weight="800">Security</text><text class="muted-svg" x="335" y="242" text-anchor="middle" font-size="12">pip-audit · Trivy filesystem</text>
+        <rect class="ok-box" x="515" y="115" rx="14" width="170" height="70"/><text x="600" y="145" text-anchor="middle" font-weight="800">Green Gate</text><text class="muted-svg" x="600" y="168" text-anchor="middle" font-size="12">Merge / Release</text>
+        <rect class="accent-box" x="760" y="115" rx="14" width="170" height="70"/><text x="845" y="145" text-anchor="middle" font-weight="800">Git Tag</text><text class="muted-svg" x="845" y="168" text-anchor="middle" font-size="12">v0.6.0</text>
+        <rect class="ok-box" x="970" y="115" rx="14" width="105" height="70"/><text x="1022" y="145" text-anchor="middle" font-weight="800">Release</text><text class="muted-svg" x="1022" y="168" text-anchor="middle" font-size="12">GitHub</text>
+        <path class="a3" d="M170 145 C200 145 200 91 230 91"/><path class="a3" d="M170 155 C200 155 200 231 230 231"/>
+        <path class="a3" d="M435 91 C480 91 480 145 510 145"/><path class="a3" d="M435 231 C480 231 480 165 510 165"/>
+        <path class="a3" d="M685 150 H755"/><path class="a3" d="M930 150 H965"/>
+      </svg>
+    </div>
+  </section>
+
+  <section id="evolution">
+    <div class="section-head"><div><div class="eyebrow">11 · Evolution</div><h2>版本演進 / Version Story</h2></div></div>
+    <div class="timeline">
+      <div class="titem"><strong>v0.1 — Basic RAG</strong><div class="muted">FastAPI, ingestion, Qdrant, vector retrieval, BM25/RRF, LLM, citation, Docker, CI/Security.</div></div>
+      <div class="titem"><strong>v0.2 — Retrieval & Document Lifecycle</strong><div class="muted">Page/section metadata, batch ingestion, document lifecycle, vector vs hybrid benchmark.</div></div>
+      <div class="titem"><strong>v0.3 — Evaluation & Platform Services</strong><div class="muted">Answer evaluation, Redis cache, PostgreSQL audit, OpenTelemetry, LiteLLM, Web UI.</div></div>
+      <div class="titem"><strong>v0.4 — Enterprise Security & Delivery</strong><div class="muted">OIDC/RBAC, multi-tenancy, MinIO/S3, Kubernetes/Helm, External Secrets example, offline bundle.</div></div>
+      <div class="titem"><strong>v0.5 — Agentic RAG</strong><div class="muted">Planner, multi-hop/corrective retrieval, critics, tool policy, human approval, agent evaluation.</div></div>
+      <div class="titem"><strong>v0.6 — Durable Enterprise Agent Runtime</strong><div class="muted">Session/checkpoint, async jobs, governed memory, budgets, rate limits, MCP-compatible adapter, Grafana agent metrics.</div></div>
+    </div>
+  </section>
+
+  <section id="interview">
+    <div class="section-head"><div><div class="eyebrow">12 · Interviewer View</div><h2>面試官 5 分鐘速讀</h2></div></div>
+    <div class="g2 grid">
+      <div class="card interview">
+        <h3>這個專案證明什麼？</h3>
+        <p>不只是會串 LLM API，而是能把 <strong>Data Engineering、RAG、Security、Platform Engineering、Evaluation、Observability、Deployment</strong> 組成一個可治理的企業級 Knowledge AI Reference Architecture。</p>
+      </div>
+      <div class="card interview">
+        <h3>最值得追問的設計決策</h3>
+        <p>Hybrid Retrieval 為何採 RRF？Tenant 為何不能由 Request Body 指定？Agent Tool 為何需要 Server-side Allowlist？Audit/Trace 為何不記 Prompt Body？Offline Delivery 怎麼避免外部依賴？</p>
+      </div>
+    </div>
+    <div class="g3 grid" style="margin-top:18px">
+      <div class="card"><h3>Data Engineering</h3><p>文件生命周期、metadata、storage、audit、batch、PostgreSQL/Qdrant/Redis。</p></div>
+      <div class="card"><h3>AI Engineering</h3><p>Hybrid retrieval、rerank、grounding、citations、evaluation、agentic retrieval。</p></div>
+      <div class="card"><h3>Platform Engineering</h3><p>OIDC/RBAC、multi-tenant、Docker/Helm、OTel、security scan、offline delivery。</p></div>
+    </div>
+    <div class="callout" style="margin-top:18px">
+      <strong>一句話 / One-liner：</strong>
+      “A governed enterprise Knowledge AI platform that takes RAG from document ingestion to retrieval quality, security, observability, agentic workflows, and production-style delivery.”
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="section-head"><div><div class="eyebrow">13 · FAQ</div><h2>常見問題 / FAQ</h2></div></div>
+    <details open><summary>這和一般 RAG Demo 最大差別？</summary><p>一般 Demo 通常停在 upload → vector search → chat。本專案額外涵蓋 document lifecycle、hybrid retrieval、evaluation、tenant isolation、object storage、audit/trace、OIDC/RBAC、agent approval、Kubernetes 與 offline delivery。</p></details>
+    <details><summary>為什麼 v0.6 還有 MCP / Agent，但定位卻是 Knowledge AI？</summary><p>MCP / Agent 是進階整合示例，用來證明 Knowledge Layer 可以被更高階 Agent Runtime 消費；完整 Tool Platform 與 DataOps Reasoning 分別由其他 Portfolio Repo 負責。</p></details>
+    <details><summary>目前是否代表完整 Production SaaS？</summary><p>不是。本 Repo 是 production-oriented reference implementation。正式環境仍需企業 IdP、Gateway/WAF、DLP/Malware scanning、KMS、SIEM、managed datastore、SLO/DR 與組織內部治理流程。</p></details>
+    <details><summary>有沒有真實客戶或公司資料？</summary><p>沒有。Repository 使用 synthetic/generic sample，避免公司、客戶、內部 URL、Credential、Schema 與敏感資料。</p></details>
+  </section>
+</div>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <strong>Enterprise RAG Platform v0.6.0</strong><br>
+    Single-file interactive project guide · 繁體中文 + English · No external CDN dependencies.<br>
+    Repository: <a href="https://github.com/kewinall/enterprise-rag-platform">github.com/kewinall/enterprise-rag-platform</a>
+  </div>
+</footer>
+
+<script>
+(function(){
+  const root=document.documentElement;
+  const saved=localStorage.getItem("erp-theme");
+  if(saved) root.dataset.theme=saved;
+  document.getElementById("themeBtn").addEventListener("click",()=>{
+    const next=root.dataset.theme==="light"?"dark":"light";
+    root.dataset.theme=next;localStorage.setItem("erp-theme",next);
+  });
+
+  document.querySelectorAll(".tab").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const target=btn.dataset.tab;
+      const parent=btn.parentElement;
+      parent.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+      btn.classList.add("active");
+      let node=parent.nextElementSibling;
+      while(node && node.classList.contains("tabpanel")){
+        node.classList.toggle("active",node.id===target);
+        node=node.nextElementSibling;
+      }
+    });
+  });
+
+  document.querySelectorAll("pre").forEach(pre=>{
+    const b=document.createElement("button");
+    b.type="button";b.className="copy";b.textContent="Copy";
+    b.addEventListener("click",async()=>{
+      try{
+        await navigator.clipboard.writeText(pre.innerText.replace(/^Copy\s*/,""));
+        b.textContent="Copied";setTimeout(()=>b.textContent="Copy",1200);
+      }catch(e){b.textContent="Select & copy";}
+    });
+    pre.appendChild(b);
+  });
+})();
+</script>
+</body>
+</html>
