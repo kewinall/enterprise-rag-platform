@@ -2,11 +2,74 @@
 
 **目前版本 / Current release: v0.6.0**
 
-> **繁體中文**：Enterprise RAG Platform 是一個 Enterprise RAG / Agentic AI Reference Platform。v0.6 在 v0.5 Agentic RAG 基礎上加入 Durable Session/Checkpoint、Async Jobs、受治理 Memory、Data Platform Read-only Tools、MCP-compatible Tool Adapter、Token/Cost Budget、Rate Limit 與 Agent Observability Dashboard。
+> **繁體中文**：Enterprise RAG Platform 是一個以企業知識為核心的 **Knowledge AI Platform**，展示文件如何經過 Ingestion、Hybrid Retrieval、Reranking、Grounded Generation、Citation 與 Evaluation，並套用 OIDC/RBAC、Multi-tenancy、Audit 與安全治理。
 >
-> **English**: Enterprise RAG Platform is an enterprise RAG / Agentic AI reference platform. v0.6 adds durable sessions/checkpoints, async jobs, governed memory, read-only data-platform tools, an MCP-compatible tool adapter, token/cost budgets, rate limiting, and an agent observability dashboard.
+> **English**: Enterprise RAG Platform is a production-oriented **Knowledge AI Platform** showing how enterprise documents become governed, grounded AI context through ingestion, hybrid retrieval, reranking, generation, citations, evaluation, and enterprise security controls.
 
-## v0.6 Highlights
+## Portfolio Role / 作品集角色
+
+**Primary role: Knowledge AI Platform / 企業知識 AI 平台**
+
+此 Repository 主要回答：**企業知識如何安全、可治理、可評測地提供給 RAG 與 Agent？**  
+This repository primarily answers: **How can enterprise knowledge be safely retrieved, governed, evaluated, and supplied to RAG/agent workloads?**
+
+Portfolio responsibility boundary:
+
+- **This repository:** knowledge ingestion, retrieval, grounding, citations, evaluation, knowledge governance.
+- [Agentic DataOps Copilot](https://github.com/kewinall/agentic-dataops-copilot): reasoning, incident analysis, and governed DataOps operations.
+- [Data Platform MCP Server](https://github.com/kewinall/data-platform-mcp-server): canonical MCP tool and enterprise data-platform integration layer.
+- [Multi-LLM AI Gateway](https://github.com/kewinall/multi-llm-ai-gateway): centralized model routing, resilience, policy, and cost control.
+
+> v0.6 includes agent, MCP, durable-session, memory, and Data Platform tool examples as **advanced integration capabilities**. They are not the primary portfolio identity of this repository.
+
+## Core Knowledge Flow / 核心知識流程
+
+    Documents
+       |
+       v
+    Parsing / Chunking
+       |
+       v
+    Embedding + Metadata
+       |
+       +-------------------+
+       |                   |
+       v                   v
+    Qdrant Vector        BM25
+       |                   |
+       +--------+----------+
+                v
+               RRF
+                |
+          Optional Reranker
+                |
+                v
+          Grounded Context
+                |
+                v
+              LLM
+                |
+                v
+       Answer + Citations
+                |
+                v
+             Evaluation
+
+Identity, Tenant, Audit, Cache, Object Storage, and Observability wrap the entire flow.
+
+## Core RAG Capabilities / 核心 RAG 能力
+
+- Document ingestion and lifecycle management
+- PDF page / Markdown section metadata
+- Hybrid vector + BM25 retrieval
+- Reciprocal Rank Fusion and optional CrossEncoder reranking
+- Grounded generation with citations
+- Retrieval and answer evaluation
+- Tenant-scoped knowledge isolation
+- S3/MinIO original-document storage
+- Audit, cache, and OpenTelemetry observability
+
+## Advanced v0.6 Capabilities / v0.6 進階能力
 
 - PostgreSQL Agent Session / Checkpoint
 - Durable Async Job Queue with restart recovery
@@ -21,7 +84,7 @@
 - Expanded Prompt / Tool Injection Evaluation
 - Web UI for Session / Memory / Async Job
 
-## Architecture
+## Advanced Agent Runtime / 進階 Agent Runtime
 
     User / MCP Client
            |
