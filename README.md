@@ -26,6 +26,52 @@ Portfolio responsibility boundary:
 
 > v0.6 includes agent, MCP, durable-session, memory, and Data Platform tool examples as **advanced integration capabilities**. They are not the primary portfolio identity of this repository.
 
+## Engineering Decisions & Production Evidence
+
+### Problem
+
+企業 RAG 的真正問題不是「能不能從 Vector DB 找到文字」，而是 **retrieval 是否完整、answer 是否 grounded、citation 是否可信、tenant 是否隔離、prompt/tool injection 是否受控，而且品質是否能量化**。沒有 evaluation 與 governance 的 RAG 很容易成為不可驗證的 demo。
+
+### Key Engineering Decisions & Trade-offs
+
+| Decision | Why / Benefit | Trade-off |
+|---|---|---|
+| **Hybrid Retrieval：Vector + BM25 + RRF** | 同時處理 semantic similarity 與 exact keyword/entity match，降低單一路徑 blind spot | Query latency、index 維護與 tuning complexity 高於 pure vector search |
+| **Optional Reranker** | 在 candidate retrieval 後再提升 relevance ordering | 增加 inference latency / compute cost |
+| **Grounded Generation + Citation + Evaluation** | 回答能對應 evidence，品質可以透過 retrieval / answer / agent evaluation 量化 | 需要維護 evaluation dataset 與 threshold，citation 也可能暴露「其實沒有好 evidence」 |
+| **Tenant-scoped retrieval / state / rate / budget** | 將 enterprise multi-tenancy 放在 retrieval 與 runtime guardrail，而不是只靠 UI | Tenant filters 可能降低 recall，並增加 cache/index key design complexity |
+| **Tool allow-list + approval for destructive action** | Knowledge AI 可以延伸到 Agent，但 destructive action 不因 RAG capability 自動取得 authority | Integration capability 更完整，但 governance path 更複雜 |
+
+### Production Failure & Recovery
+
+| Scenario | Engineering Behavior / Detection | Recovery Strategy |
+|---|---|---|
+| Retrieval 找不到足夠 evidence | Citation / evaluation 讓 unsupported answer 可被辨識，而不是把 fluency 當 correctness | 調整 query、ingestion、chunking、index 或明確回覆 evidence insufficient |
+| Cross-tenant access attempt | Tenant filters / role checks 應拒絕或隔離非本 tenant knowledge | 修正 identity / tenant mapping；不可透過關閉 tenant filter 來「提高 recall」 |
+| Prompt / Tool injection | Adversarial evaluation 與 tool policy 用來驗證模型是否被非授權 instruction 誘導 | 更新 policy / prompt / test cases，再通過 adversarial regression |
+| Budget / rate limit exceeded | Runtime guardrail 應在資源消耗持續擴張前拒絕 request | 調整 quota / budget 或等待 window reset，不直接 bypass |
+| Vector / embedding / state backend unavailable | Request / job 應明確失敗或 degraded，不應繞過 tenant/security governance | 恢復依賴後 retry；必要時依 durable job/session state 繼續 |
+
+### Production Evidence
+
+| Claim | Repository Evidence |
+|---|---|
+| Tenant isolation 有 regression tests | `tests/test_tenancy.py`, `tests/test_roles.py`, `tests/test_filters.py` |
+| Security / prompt-tool injection 有測試 | `tests/test_security.py`, `tests/test_adversarial.py`, `scripts/evaluate_adversarial.py` |
+| Retrieval / answer / agent evaluation 可執行 | `scripts/evaluate_retrieval.py`, `scripts/evaluate_answers.py`, `scripts/evaluate_agent.py`, `data/eval/*.jsonl` |
+| Budget / rate-limit guardrails 有測試 | `tests/test_budget.py`, `tests/test_rate_limit.py` |
+| Agent approval boundary 有測試 | `tests/test_agent_approval.py`, `docs/tool-policy.md` |
+| CI / Security gate | `.github/workflows/ci.yml`, `.github/workflows/security.yml` |
+
+### Interview Questions This Project Can Answer
+
+- 為什麼不是只用 Vector Search？
+- Reranker 的品質收益是否值得 latency / cost？
+- 如何證明 answer 是 grounded，而不是模型自己說「有引用」？
+- Multi-tenancy 為什麼可能降低 recall，但仍不能拿掉？
+- Prompt injection 要如何從「Prompt 寫得更嚴格」提升到可測試的工程控制？
+
+
 ## Core Knowledge Flow / 核心知識流程
 
     Documents
