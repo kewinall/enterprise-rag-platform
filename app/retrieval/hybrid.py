@@ -38,6 +38,13 @@ def hybrid_search(
             results = store.search(query, limit=limit, filters=filters)
             span.set_attribute("rag.retrieval.result_count", len(results))
             return results
+
+        corpus = store.list_chunks(filters=filters)
+        if mode == "lexical":
+            results = bm25_rank(query, corpus, limit=limit)
+            span.set_attribute("rag.retrieval.lexical_candidates", len(corpus))
+            span.set_attribute("rag.retrieval.result_count", len(results))
+            return results
         if mode != "hybrid":
             raise ValueError(f"Unsupported retrieval mode: {mode}")
 
@@ -46,7 +53,6 @@ def hybrid_search(
             limit=settings.vector_top_k,
             filters=filters,
         )
-        corpus = store.list_chunks(filters=filters)
         lexical_results = bm25_rank(query, corpus, limit=settings.lexical_top_k)
 
         vector_ids = [item["chunk_id"] for item in vector_results]
