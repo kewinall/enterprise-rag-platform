@@ -1,3 +1,8 @@
+KNOWLEDGE_PACKAGE ?= ../engineering-knowledge-base/dist/knowledge
+KNOWLEDGE_EVAL ?= ../engineering-knowledge-base/evaluation/retrieval-golden.jsonl
+KNOWLEDGE_TENANT ?= engineering-knowledge
+KNOWLEDGE_EVIDENCE ?= artifacts/knowledge-evaluation
+
 install:
 	python -m pip install -e ".[dev]"
 
@@ -24,3 +29,17 @@ evaluate-agent:
 
 evaluate-adversarial:
 	python scripts/evaluate_adversarial.py
+
+validate-knowledge-package:
+	python scripts/ingest_knowledge_package.py $(KNOWLEDGE_PACKAGE) --tenant-id $(KNOWLEDGE_TENANT) --validate-only
+
+ingest-knowledge-package:
+	python scripts/ingest_knowledge_package.py $(KNOWLEDGE_PACKAGE) --tenant-id $(KNOWLEDGE_TENANT)
+
+benchmark-knowledge:
+	python scripts/benchmark_retrieval.py --dataset $(KNOWLEDGE_EVAL) --tenant-id $(KNOWLEDGE_TENANT) --k 5 --output $(KNOWLEDGE_EVIDENCE)/retrieval-results.json
+
+evaluate-knowledge-citations:
+	python scripts/evaluate_citation_fidelity.py --tenant-id $(KNOWLEDGE_TENANT) --fail-on-broken --output $(KNOWLEDGE_EVIDENCE)/citation-results.json
+
+knowledge-evidence: benchmark-knowledge evaluate-knowledge-citations
