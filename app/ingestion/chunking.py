@@ -16,6 +16,15 @@ class Chunk:
     page: int | None
     section: str | None
     content_type: str
+    segment_id: str | None = None
+    source_path: str | None = None
+    line_start: int | None = None
+    line_end: int | None = None
+    content_sha256: str | None = None
+    heading_path: list[str] | None = None
+    access_class: str | None = None
+    quality_score: float | None = None
+    citation: dict | None = None
 
 
 def create_document_id(source: str, tenant_id: str = "default") -> str:

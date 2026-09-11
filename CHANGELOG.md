@@ -1,5 +1,24 @@
 # 版本異動紀錄 / Changelog
 
+## Unreleased
+
+### 新增 / Added
+
+- Engineering Knowledge Package Contract v1.0 consumer and validation path.
+- Deterministic mapping from canonical `segment_id` to Qdrant-compatible storage UUID while preserving source identity.
+- Provenance payload fields for document/segment IDs, source path, line range, content hash, access class, quality score and citation object.
+- Lexical/BM25-only retrieval mode for controlled baseline comparison.
+- Engineering retrieval benchmark support for multiple acceptable sources, tenant filtering, failed-case evidence and P50/P95 latency.
+- Citation fidelity evaluator with zero-broken-citation gate.
+- Knowledge package ingestion, benchmark and evidence Make targets.
+- Integration documentation and contract tests.
+
+### 變更 / Changed
+
+- Hybrid retrieval now exposes a dedicated lexical baseline without changing existing vector/hybrid behavior.
+- Retrieval result payloads preserve source provenance required by the Engineering Knowledge Base.
+- Portfolio boundary now explicitly identifies `engineering-knowledge-base` as the canonical engineering knowledge source.
+
 ## 0.6.0 - 2026-09-09
 
 ### 新增 / Added
