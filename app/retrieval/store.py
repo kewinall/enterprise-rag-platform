@@ -52,6 +52,15 @@ class VectorStore:
             "page": payload.get("page"),
             "section": payload.get("section"),
             "content_type": payload.get("content_type", "text/plain"),
+            "segment_id": payload.get("segment_id"),
+            "source_path": payload.get("source_path"),
+            "line_start": payload.get("line_start"),
+            "line_end": payload.get("line_end"),
+            "content_sha256": payload.get("content_sha256"),
+            "heading_path": payload.get("heading_path"),
+            "access_class": payload.get("access_class"),
+            "quality_score": payload.get("quality_score"),
+            "citation": payload.get("citation"),
             "score": score,
         }
 
