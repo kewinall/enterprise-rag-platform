@@ -26,13 +26,13 @@
 ## Knowledge Flow
 
 ```text
-Documents
+Documents / Governed Knowledge Package
    |
    v
-Parsing / Chunking
+Parsing / Contract Validation / Chunking
    |
    v
-Embedding + Metadata
+Embedding + Metadata + Provenance
    |
    +-------------------+
    |                   |
@@ -75,6 +75,35 @@ Identity、tenant policy、audit、storage、cache 與 observability 會包覆�
 - Prometheus metrics 與 Grafana dashboard
 - adversarial prompt / tool-injection evaluation
 - MCP-compatible tool adapter
+- Engineering Knowledge Package v1.0 contract validation / ingestion
+- source provenance preservation through vector storage and retrieval
+- vector / lexical / hybrid engineering knowledge benchmark path
+- citation-fidelity regression evidence
+
+## Engineering Knowledge Package Integration
+
+`kewinall/engineering-knowledge-base` 是 canonical engineering Knowledge Source of Truth；本 Repository 作為 consumer，直接消費其 deterministic Knowledge Package，而不複製 source ownership。
+
+```bash
+make validate-knowledge-package
+make ingest-knowledge-package
+make benchmark-knowledge
+make evaluate-knowledge-citations
+```
+
+完整說明：[`docs/knowledge-package-integration.md`](docs/knowledge-package-integration.md)。
+
+Consumer 會保留：
+
+- `document_id`
+- `segment_id`
+- `source_path`
+- source line range
+- content SHA-256
+- citation object
+- access / quality metadata
+
+Golden retrieval dataset 仍由 Knowledge Base version control；本專案負責 Vector、BM25、Hybrid/RRF、latency 與 citation runtime evidence。
 
 ## 關鍵工程決策
 
@@ -85,6 +114,7 @@ Identity、tenant policy、audit、storage、cache 與 observability 會包覆�
 | Grounding + Citation + Evaluation | 讓品質可被量化，而不是只看文字是否流暢 | 需要維護 evaluation dataset 與 threshold |
 | Tenant-scoped retrieval / state | Multi-tenancy 在 retrieval/runtime 層 enforce | Filter 可能降低 recall，cache/index key 也更複雜 |
 | Tool allow-list + approval boundary | RAG capability 不等於 mutation authority | Agent integration 的 governance path 更複雜 |
+| Source-owned Knowledge Contract | Canonical content 與 expected sources 同步 version control，consumer 只負責 runtime | 跨 repo 需要明確 compatibility contract |
 
 ## 失敗語意與復原原則
 
@@ -93,6 +123,7 @@ Identity、tenant policy、audit、storage、cache 與 observability 會包覆�
 - prompt / tool injection 透過 adversarial regression tests 驗證
 - rate / budget 超限時在資源持續消耗前拒絕 request
 - backend failure 可以 degraded 或 fail，但不可繞過 identity / tenant controls
+- Knowledge Package hash、count、source/citation contract 不一致時拒絕 ingestion，不以 best-effort silently repair provenance
 
 ## 可驗證 Evidence
 
@@ -101,6 +132,9 @@ Identity、tenant policy、audit、storage、cache 與 observability 會包覆�
 | Tenant isolation regression | `tests/test_tenancy.py`, `tests/test_roles.py`, `tests/test_filters.py` |
 | Prompt / tool injection tests | `tests/test_security.py`, `tests/test_adversarial.py`, `scripts/evaluate_adversarial.py` |
 | Retrieval / answer / agent evaluation | `scripts/evaluate_retrieval.py`, `scripts/evaluate_answers.py`, `scripts/evaluate_agent.py`, `data/eval/*.jsonl` |
+| Knowledge Package compatibility | `app/ingestion/knowledge_package.py`, `tests/test_knowledge_package.py` |
+| Engineering retrieval evidence | `scripts/benchmark_retrieval.py`, `docs/knowledge-package-integration.md` |
+| Citation fidelity | `app/evaluation/citation_fidelity.py`, `scripts/evaluate_citation_fidelity.py`, `tests/test_citation_fidelity.py` |
 | Budget / rate-limit guardrails | `tests/test_budget.py`, `tests/test_rate_limit.py` |
 | Agent approval boundary | `tests/test_agent_approval.py`, `docs/tool-policy.md` |
 | CI / Security gate | `.github/workflows/ci.yml`, `.github/workflows/security.yml` |
@@ -124,11 +158,18 @@ make evaluate-agent
 make evaluate-adversarial
 ```
 
+Engineering Knowledge evidence：
+
+```bash
+make knowledge-evidence
+```
+
 ## 工程文件
 
 - `docs/architecture.md`
 - `docs/security.md`
 - `docs/evaluation.md`
+- `docs/knowledge-package-integration.md`
 - `docs/observability.md`
 - `docs/agent-sessions.md`
 - `docs/agent-governance.md`
@@ -142,6 +183,7 @@ make evaluate-adversarial
 ## Portfolio 責任邊界
 
 - **Enterprise RAG Platform**：knowledge ingestion、retrieval、grounding、citations、evaluation、knowledge governance
+- **Engineering Knowledge Base**：canonical engineering knowledge、stable source identity、provenance、Knowledge Package contract、golden retrieval cases
 - **Agentic DataOps Copilot**：operational reasoning 與 governed remediation
 - **Data Platform MCP Server**：standardized tool / integration boundary
 - **Multi-LLM AI Gateway**：model routing、resilience、policy、cost control
