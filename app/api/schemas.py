@@ -30,6 +30,30 @@ class SearchRequest(BaseModel):
     filters: RetrievalFilter | None = None
 
 
+class CitationFeedbackRequest(BaseModel):
+    query_id: str = Field(min_length=1, max_length=128)
+    document_id: str = Field(min_length=1, max_length=256)
+    rank: int = Field(ge=1, le=100)
+
+
+class TroubleshootingReuseFeedbackRequest(BaseModel):
+    document_id: str = Field(min_length=1, max_length=256)
+    outcome: Literal["success", "partial", "failure"]
+
+
+class LifecycleFeedbackRequest(BaseModel):
+    document_id: str = Field(min_length=1, max_length=256)
+    reason: Literal[
+        "outdated",
+        "version_mismatch",
+        "broken_source",
+        "unclear",
+        "missing_step",
+        "other",
+    ]
+    severity: Literal["low", "medium", "high"]
+
+
 class AnswerEvaluationRequest(BaseModel):
     question: str = Field(min_length=2, max_length=4000)
     answer: str = Field(min_length=1, max_length=12000)
