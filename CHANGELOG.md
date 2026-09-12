@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.1 - 2026-09-12
+
 ### 新增 / Added
 
 - Engineering Knowledge Package Contract v1.0 consumer and validation path.
@@ -11,13 +13,27 @@
 - Engineering retrieval benchmark support for multiple acceptable sources, tenant filtering, failed-case evidence and P50/P95 latency.
 - Citation fidelity evaluator with zero-broken-citation gate.
 - Knowledge package ingestion, benchmark and evidence Make targets.
-- Integration documentation and contract tests.
+- Privacy-safe Engineering Knowledge Base v0.8 operational-feedback JSONL writer.
+- Live search telemetry with random pseudonymous `query_id` and stable returned `document_id` values.
+- Explicit citation-click, troubleshooting-reuse and lifecycle-feedback API endpoints.
+- Controlled-runtime benchmark telemetry export using the same operational-feedback contract.
+- Unit tests for privacy-safe event output and benchmark telemetry emission.
+- Operational feedback integration documentation.
 
 ### 變更 / Changed
 
 - Hybrid retrieval now exposes a dedicated lexical baseline without changing existing vector/hybrid behavior.
 - Retrieval result payloads preserve source provenance required by the Engineering Knowledge Base.
 - Portfolio boundary now explicitly identifies `engineering-knowledge-base` as the canonical engineering knowledge source.
+- `POST /api/v1/search` now returns a pseudonymous `query_id`; event persistence remains opt-in.
+- Application version advanced to 0.6.1.
+
+### Privacy / Evidence Boundary
+
+- Operational feedback is disabled by default.
+- Raw query text, prompts, username, email, IP address and authenticated subject are not written to the operational-feedback export.
+- `controlled_runtime` benchmark events prove consumer integration against actual retrieval execution but are not production human-usage evidence.
+- Live API events are marked `evidence_kind=live_consumer`.
 
 ## 0.6.0 - 2026-09-09
 
