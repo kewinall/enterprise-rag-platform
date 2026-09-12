@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 from threading import Lock
@@ -38,7 +38,7 @@ class OperationalFeedbackWriter:
 
     @staticmethod
     def _now() -> str:
-        return datetime.now(timezone.utc).isoformat()
+        return datetime.now(UTC).isoformat()
 
     def _base_event(self, event_type: str) -> dict[str, Any]:
         return {
@@ -52,9 +52,8 @@ class OperationalFeedbackWriter:
     def _append(self, event: dict[str, Any]) -> str:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         rendered = json.dumps(event, ensure_ascii=False, separators=(",", ":"))
-        with self._lock:
-            with self.path.open("a", encoding="utf-8") as handle:
-                handle.write(rendered + "\n")
+        with self._lock, self.path.open("a", encoding="utf-8") as handle:
+            handle.write(rendered + "\n")
         return str(event["event_id"])
 
     @staticmethod
