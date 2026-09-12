@@ -16,13 +16,17 @@ from app.api.schemas import (
     AgentEvaluationRequest,
     AgentQueryRequest,
     AnswerEvaluationRequest,
+    CitationFeedbackRequest,
+    LifecycleFeedbackRequest,
     QueryRequest,
     SearchRequest,
+    TroubleshootingReuseFeedbackRequest,
 )
 from app.core.cache import get_cache_store
 from app.core.config import get_settings
 from app.core.metrics import AGENT_APPROVALS, AGENT_RATE_LIMITED
 from app.core.object_store import get_object_store
+from app.core.operational_feedback import OperationalFeedbackWriter, get_live_feedback_writer
 from app.core.rate_limit import get_agent_rate_limiter
 from app.core.security import (
     ROLE_ADMIN,
@@ -47,6 +51,18 @@ PrincipalDep = Annotated[Principal, Depends(get_principal)]
 
 def _scoped_filters(principal: Principal, filters: dict | None = None) -> dict:
     return {**(filters or {}), "tenant_id": principal.tenant_id}
+
+
+def _feedback_writer() -> OperationalFeedbackWriter:
+    writer = get_live_feedback_writer()
+    if writer is None:
+        raise HTTPException(status_code=503, detail="Operational feedback export is disabled")
+    return writer
+
+
+def _require_known_document(document_id: str, principal: Principal) -> None:
+    if get_vector_store().count_document(document_id, principal.tenant_id) == 0:
+        raise HTTPException(status_code=404, detail="Document not found")
 
 
 async def _ingest_upload(
@@ -224,12 +240,63 @@ async def search(request: SearchRequest, principal: PrincipalDep) -> dict:
         filters=scoped_filters,
         mode=request.mode,
     )
+    query_id = OperationalFeedbackWriter.new_query_id()
+    writer = get_live_feedback_writer()
+    feedback_event_id = None
+    if writer is not None:
+        feedback_event_id = writer.emit_search(query_id=query_id, results=results)
     return {
+        "query_id": query_id,
+        "operational_feedback_event_id": feedback_event_id,
         "mode": request.mode,
         "filters": filters or {},
         "tenant_id": principal.tenant_id,
         "results": results,
     }
+
+
+@router.post("/feedback/citation-click")
+async def citation_click_feedback(
+    request: CitationFeedbackRequest,
+    principal: PrincipalDep,
+) -> dict:
+    require_role(principal, ROLE_VIEWER)
+    _require_known_document(request.document_id, principal)
+    event_id = _feedback_writer().emit_citation_click(
+        query_id=request.query_id,
+        document_id=request.document_id,
+        rank=request.rank,
+    )
+    return {"status": "recorded", "event_id": event_id}
+
+
+@router.post("/feedback/troubleshooting-reuse")
+async def troubleshooting_reuse_feedback(
+    request: TroubleshootingReuseFeedbackRequest,
+    principal: PrincipalDep,
+) -> dict:
+    require_role(principal, ROLE_VIEWER)
+    _require_known_document(request.document_id, principal)
+    event_id = _feedback_writer().emit_troubleshooting_reuse(
+        document_id=request.document_id,
+        outcome=request.outcome,
+    )
+    return {"status": "recorded", "event_id": event_id}
+
+
+@router.post("/feedback/lifecycle")
+async def lifecycle_feedback(
+    request: LifecycleFeedbackRequest,
+    principal: PrincipalDep,
+) -> dict:
+    require_role(principal, ROLE_VIEWER)
+    _require_known_document(request.document_id, principal)
+    event_id = _feedback_writer().emit_lifecycle_feedback(
+        document_id=request.document_id,
+        reason=request.reason,
+        severity=request.severity,
+    )
+    return {"status": "recorded", "event_id": event_id}
 
 
 @router.post("/query")

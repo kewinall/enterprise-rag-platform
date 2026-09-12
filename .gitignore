@@ -10,4 +10,5 @@ dist/
 build/
 *.egg-info/
 data/uploads/
+var/
 .DS_Store

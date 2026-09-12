@@ -1,6 +1,6 @@
 # Enterprise RAG Platform
 
-**目前版本：v0.6.0**
+**目前版本：v0.6.1**
 
 > **互動式架構與專案總覽**  
 > [GitHub Pages](https://kewinall.github.io/enterprise-rag-platform/) · [Repository HTML](docs/enterprise-rag-platform-guide.html)
@@ -19,6 +19,7 @@
 - retrieval / answer / agent evaluation
 - tenant-scoped knowledge isolation
 - audit、cache 與 observability
+- privacy-safe operational feedback export
 - advanced agent scenario 的 controlled tool exposure
 
 本專案刻意不負責 model-provider routing、canonical MCP integration platform 或 DataOps remediation logic。
@@ -54,6 +55,8 @@ Vector Search         BM25
             v
    Answer + Citations
             |
+            +--------> Privacy-safe Operational Feedback
+            |
             v
          Evaluation
 ```
@@ -79,6 +82,7 @@ Identity、tenant policy、audit、storage、cache 與 observability 會包覆�
 - source provenance preservation through vector storage and retrieval
 - vector / lexical / hybrid engineering knowledge benchmark path
 - citation-fidelity regression evidence
+- Engineering Knowledge Base v0.8 operational-feedback contract export
 
 ## Engineering Knowledge Package Integration
 
@@ -105,6 +109,34 @@ Consumer 會保留：
 
 Golden retrieval dataset 仍由 Knowledge Base version control；本專案負責 Vector、BM25、Hybrid/RRF、latency 與 citation runtime evidence。
 
+## Usage / Operational Feedback
+
+v0.6.1 新增與 Engineering Knowledge Base v0.8 相容的 privacy-safe telemetry export。此功能預設關閉；啟用後，`POST /api/v1/search` 會回傳隨機 pseudonymous `query_id`，並只輸出 result count 與 stable `document_id`，不保存 raw query、prompt 或使用者身份。
+
+```env
+OPERATIONAL_FEEDBACK_ENABLED=true
+OPERATIONAL_FEEDBACK_PATH=var/operational-feedback.jsonl
+OPERATIONAL_FEEDBACK_CONSUMER_NAME=enterprise-rag-platform
+```
+
+另提供明確 feedback endpoints：
+
+- `POST /api/v1/feedback/citation-click`
+- `POST /api/v1/feedback/troubleshooting-reuse`
+- `POST /api/v1/feedback/lifecycle`
+
+Retrieval benchmark 也可輸出相同 contract：
+
+```bash
+python scripts/benchmark_retrieval.py \
+  --dataset /path/to/retrieval-golden.jsonl \
+  --tenant-id knowledge-base \
+  --runs 1 \
+  --operational-feedback-output dist/operational-feedback.jsonl
+```
+
+Benchmark events 會標記 `evidence_kind=controlled_runtime`；它能證明 consumer telemetry integration 實際通過 retrieval execution，但**不能宣稱為 production human usage**。完整說明見 [`docs/operational-feedback.md`](docs/operational-feedback.md)。
+
 ## 關鍵工程決策
 
 | 決策 | 原因 / 效益 | Trade-off |
@@ -115,6 +147,7 @@ Golden retrieval dataset 仍由 Knowledge Base version control；本專案負責
 | Tenant-scoped retrieval / state | Multi-tenancy 在 retrieval/runtime 層 enforce | Filter 可能降低 recall，cache/index key 也更複雜 |
 | Tool allow-list + approval boundary | RAG capability 不等於 mutation authority | Agent integration 的 governance path 更複雜 |
 | Source-owned Knowledge Contract | Canonical content 與 expected sources 同步 version control，consumer 只負責 runtime | 跨 repo 需要明確 compatibility contract |
+| Privacy-safe feedback contract | 可把真實 usage 回流 Knowledge Base，而不輸出 raw query / identity | 需要 consumer/UI 額外送出 click/reuse/lifecycle feedback |
 
 ## 失敗語意與復原原則
 
@@ -124,6 +157,7 @@ Golden retrieval dataset 仍由 Knowledge Base version control；本專案負責
 - rate / budget 超限時在資源持續消耗前拒絕 request
 - backend failure 可以 degraded 或 fail，但不可繞過 identity / tenant controls
 - Knowledge Package hash、count、source/citation contract 不一致時拒絕 ingestion，不以 best-effort silently repair provenance
+- operational feedback disabled 時不偽造 usage evidence；controlled-runtime telemetry 不冒充 production adoption
 
 ## 可驗證 Evidence
 
@@ -135,6 +169,7 @@ Golden retrieval dataset 仍由 Knowledge Base version control；本專案負責
 | Knowledge Package compatibility | `app/ingestion/knowledge_package.py`, `tests/test_knowledge_package.py` |
 | Engineering retrieval evidence | `scripts/benchmark_retrieval.py`, `docs/knowledge-package-integration.md` |
 | Citation fidelity | `app/evaluation/citation_fidelity.py`, `scripts/evaluate_citation_fidelity.py`, `tests/test_citation_fidelity.py` |
+| Operational feedback privacy/contract | `app/core/operational_feedback.py`, `tests/test_operational_feedback.py`, `docs/operational-feedback.md` |
 | Budget / rate-limit guardrails | `tests/test_budget.py`, `tests/test_rate_limit.py` |
 | Agent approval boundary | `tests/test_agent_approval.py`, `docs/tool-policy.md` |
 | CI / Security gate | `.github/workflows/ci.yml`, `.github/workflows/security.yml` |
@@ -170,6 +205,7 @@ make knowledge-evidence
 - `docs/security.md`
 - `docs/evaluation.md`
 - `docs/knowledge-package-integration.md`
+- `docs/operational-feedback.md`
 - `docs/observability.md`
 - `docs/agent-sessions.md`
 - `docs/agent-governance.md`
@@ -182,8 +218,8 @@ make knowledge-evidence
 
 ## Portfolio 責任邊界
 
-- **Enterprise RAG Platform**：knowledge ingestion、retrieval、grounding、citations、evaluation、knowledge governance
-- **Engineering Knowledge Base**：canonical engineering knowledge、stable source identity、provenance、Knowledge Package contract、golden retrieval cases
+- **Enterprise RAG Platform**：knowledge ingestion、retrieval、grounding、citations、evaluation、knowledge governance、consumer telemetry capture
+- **Engineering Knowledge Base**：canonical engineering knowledge、stable source identity、provenance、Knowledge Package contract、golden retrieval cases、operational feedback governance
 - **Agentic DataOps Copilot**：operational reasoning 與 governed remediation
 - **Data Platform MCP Server**：standardized tool / integration boundary
 - **Multi-LLM AI Gateway**：model routing、resilience、policy、cost control

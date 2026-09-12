@@ -4,6 +4,8 @@ import math
 from pathlib import Path
 from time import perf_counter
 
+from app.core.config import get_settings
+from app.core.operational_feedback import OperationalFeedbackWriter
 from app.evaluation.metrics import recall_at_k, reciprocal_rank
 from app.retrieval.hybrid import hybrid_search
 
@@ -27,7 +29,13 @@ def _percentile(values: list[float], percentile: float) -> float:
 
 
 def benchmark_mode(
-    dataset: Path, k: int, mode: str, tenant_id: str | None = None, warmup: int = 0, runs: int = 1
+    dataset: Path,
+    k: int,
+    mode: str,
+    tenant_id: str | None = None,
+    warmup: int = 0,
+    runs: int = 1,
+    feedback_writer: OperationalFeedbackWriter | None = None,
 ) -> dict:
     cases = [
         json.loads(line)
@@ -44,7 +52,10 @@ def benchmark_mode(
 
     for index in range(warmup):
         hybrid_search(
-            cases[index % len(cases)]["question"], final_top_k=k, mode=mode, filters=filters
+            cases[index % len(cases)]["question"],
+            final_top_k=k,
+            mode=mode,
+            filters=filters,
         )
     observations = []
     for index in range(len(cases) * runs):
@@ -52,6 +63,14 @@ def benchmark_mode(
         started = perf_counter()
         results = hybrid_search(case["question"], final_top_k=k, mode=mode, filters=filters)
         latencies_ms.append((perf_counter() - started) * 1000)
+
+        run_number = index // len(cases) + 1
+        case_id = str(case.get("case_id") or f"case-{index % len(cases) + 1}")
+        if feedback_writer is not None:
+            feedback_writer.emit_search(
+                query_id=f"benchmark-{mode}-{case_id}-run-{run_number}",
+                results=results,
+            )
 
         sources = [result["source"] for result in results]
         expected = _expected_sources(case)
@@ -61,7 +80,7 @@ def benchmark_mode(
         reciprocal_ranks.append(rr)
         observations.append(
             {
-                "run": index // len(cases) + 1,
+                "run": run_number,
                 "case_id": case.get("case_id"),
                 "recall": recall,
                 "reciprocal_rank": rr,
@@ -72,7 +91,7 @@ def benchmark_mode(
         if recall == 0:
             failures.append(
                 {
-                    "run": index // len(cases) + 1,
+                    "run": run_number,
                     "case_id": case.get("case_id"),
                     "question": case["question"],
                     "expected_sources": expected,
@@ -104,20 +123,54 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--warmup", type=int, default=3)
     parser.add_argument("--runs", type=int, default=3)
+    parser.add_argument("--operational-feedback-output", type=Path, default=None)
     args = parser.parse_args()
+
+    feedback_writer = None
+    if args.operational_feedback_output:
+        args.operational_feedback_output.unlink(missing_ok=True)
+        settings = get_settings()
+        feedback_writer = OperationalFeedbackWriter(
+            args.operational_feedback_output,
+            consumer_name="enterprise-rag-platform-benchmark",
+            consumer_version=settings.app_version,
+            environment="controlled-runtime",
+            evidence_kind="controlled_runtime",
+        )
 
     report = {
         "dataset": str(args.dataset),
         "top_k": args.k,
         "tenant_id": args.tenant_id,
+        "operational_feedback_output": (
+            str(args.operational_feedback_output) if args.operational_feedback_output else None
+        ),
         "vector": benchmark_mode(
-            args.dataset, args.k, "vector", args.tenant_id, args.warmup, args.runs
+            args.dataset,
+            args.k,
+            "vector",
+            args.tenant_id,
+            args.warmup,
+            args.runs,
+            feedback_writer,
         ),
         "lexical": benchmark_mode(
-            args.dataset, args.k, "lexical", args.tenant_id, args.warmup, args.runs
+            args.dataset,
+            args.k,
+            "lexical",
+            args.tenant_id,
+            args.warmup,
+            args.runs,
+            feedback_writer,
         ),
         "hybrid": benchmark_mode(
-            args.dataset, args.k, "hybrid", args.tenant_id, args.warmup, args.runs
+            args.dataset,
+            args.k,
+            "hybrid",
+            args.tenant_id,
+            args.warmup,
+            args.runs,
+            feedback_writer,
         ),
     }
     rendered = json.dumps(report, indent=2, ensure_ascii=False)
