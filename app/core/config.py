@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "Enterprise RAG Platform"
-    app_version: str = "0.6.0"
+    app_version: str = "0.6.1"
     app_env: str = "dev"
     log_level: str = "INFO"
 
