@@ -79,6 +79,10 @@ class Settings(BaseSettings):
     otel_service_name: str = "enterprise-rag-api"
     otel_exporter_otlp_traces_endpoint: str | None = None
 
+    operational_feedback_enabled: bool = False
+    operational_feedback_path: str = "var/operational-feedback.jsonl"
+    operational_feedback_consumer_name: str = "enterprise-rag-platform"
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 
 
